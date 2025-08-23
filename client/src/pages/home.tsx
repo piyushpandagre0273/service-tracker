@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Bell, Edit, MessageSquare, Mic, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Bell, Edit, MessageSquare, Mic, ChevronDown, ChevronUp, Upload, FileText, Send } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -551,36 +551,61 @@ export default function Home() {
                       )}
                     />
 
-                    <div>
-                      <Label className="block text-sm font-medium text-gray-700 mb-2">Attachments</Label>
-                      <div className="flex items-center space-x-4">
-                        <ObjectUploader
-                          maxNumberOfFiles={5}
-                          maxFileSize={10485760}
-                          onGetUploadParameters={handleGetUploadParameters}
-                          onComplete={handleUploadComplete}
-                          buttonClassName="flex-1"
-                        >
-                          <div className="flex items-center gap-2 text-sm">
-                            <span>📁</span>
-                            <span>Choose Files</span>
-                          </div>
-                        </ObjectUploader>
-                        <Button type="button" variant="destructive" data-testid="button-record-audio">
-                          <Mic className="h-4 w-4 mr-2" />
-                          Record Audio
-                        </Button>
+                    <div className="space-y-4">
+                      <Label className="block text-sm font-medium text-gray-900 mb-3">Attachments</Label>
+                      <div className="bg-gray-50 rounded-xl p-6 border-2 border-dashed border-gray-200 hover:border-blue-300 transition-colors">
+                        <div className="text-center mb-4">
+                          <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-600 mb-1">Drop your files here or browse files</p>
+                          <p className="text-xs text-gray-500">Support for multiple file types, up to 10MB each</p>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <ObjectUploader
+                            maxNumberOfFiles={5}
+                            maxFileSize={10485760}
+                            onGetUploadParameters={handleGetUploadParameters}
+                            onComplete={handleUploadComplete}
+                            buttonClassName="w-full sm:flex-1 bg-white hover:bg-blue-50 border border-blue-200 text-blue-700 hover:text-blue-800 font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center cursor-pointer"
+                          >
+                            <div className="flex items-center justify-center">
+                              <FileText className="h-4 w-4 mr-2" />
+                              <span>Choose Files</span>
+                            </div>
+                          </ObjectUploader>
+                          
+                          <Button 
+                            type="button" 
+                            className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
+                            data-testid="button-record-audio"
+                          >
+                            <Mic className="h-4 w-4 mr-2" />
+                            Record Audio
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
-                    <Button 
-                      type="submit" 
-                      className="bg-blue-600 hover:bg-blue-700"
-                      disabled={createRequestMutation.isPending}
-                      data-testid="button-submit-request"
-                    >
-                      {createRequestMutation.isPending ? "Submitting..." : "Submit Request"}
-                    </Button>
+                    <div className="flex justify-end pt-6 border-t border-gray-100">
+                      <Button 
+                        type="submit" 
+                        disabled={createRequestMutation.isPending}
+                        className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none min-w-[160px]"
+                        data-testid="button-submit-request"
+                      >
+                        {createRequestMutation.isPending ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Submit Request
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </form>
                 </Form>
               </CardContent>
