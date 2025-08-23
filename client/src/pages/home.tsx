@@ -25,6 +25,7 @@ const createRequestSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
   customerContact: z.string().min(1, "Customer contact is required"),
   issueDescription: z.string().min(1, "Issue description is required"),
+  attachments: z.array(z.string()).optional().default([]),
 });
 
 type CreateRequestForm = z.infer<typeof createRequestSchema>;
@@ -68,6 +69,7 @@ export default function Home() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showAttachments, setShowAttachments] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -136,7 +138,8 @@ export default function Home() {
     },
     onSuccess: () => {
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/service-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/completed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
       toast({
         title: "Success",
@@ -158,7 +161,8 @@ export default function Home() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/service-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/completed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
       toast({
         title: "Success",
@@ -181,7 +185,8 @@ export default function Home() {
     },
     onSuccess: (_, variables) => {
       setCommentInputs(prev => ({ ...prev, [variables.requestId]: "" }));
-      queryClient.invalidateQueries({ queryKey: ["/api/service-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/completed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/service-requests", variables.requestId, "comments"] });
       toast({
         title: "Success",
@@ -206,7 +211,8 @@ export default function Home() {
       setIsEditDialogOpen(false);
       setEditingRequest(null);
       editForm.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/service-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/completed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
       toast({
         title: "Success",
@@ -262,8 +268,53 @@ export default function Home() {
     setSearchQuery("");
   };
 
-  const onSubmit = (data: CreateRequestForm) => {
-    createRequestMutation.mutate(data);
+  // File upload function
+  const uploadFiles = async (files: File[]): Promise<string[]> => {
+    const uploadPromises = files.map(async (file) => {
+      // Get upload URL
+      const response = await apiRequest("POST", "/api/objects/upload");
+      const { uploadURL } = await response.json();
+      
+      // Upload file to the presigned URL
+      await fetch(uploadURL, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type
+        }
+      });
+      
+      // Return the object path
+      return uploadURL.split('?')[0]; // Remove query parameters to get clean URL
+    });
+    
+    return Promise.all(uploadPromises);
+  };
+
+  const onSubmit = async (data: CreateRequestForm) => {
+    try {
+      let attachments: string[] = [];
+      
+      // Upload files if any selected
+      if (selectedFiles.length > 0) {
+        attachments = await uploadFiles(selectedFiles);
+      }
+      
+      // Create request with attachments
+      createRequestMutation.mutate({
+        ...data,
+        attachments
+      });
+      
+      // Clear selected files after submission
+      setSelectedFiles([]);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to upload files",
+        variant: "destructive",
+      });
+    }
   };
 
   const onEditSubmit = (data: CreateRequestForm) => {
@@ -566,7 +617,12 @@ export default function Home() {
                             input.onchange = (e) => {
                               const files = (e.target as HTMLInputElement).files;
                               if (files && files.length > 0) {
-                                alert(`Selected ${files.length} photo(s): ${Array.from(files).map(f => f.name).join(', ')}`);
+                                const fileArray = Array.from(files);
+                                setSelectedFiles(prev => [...prev, ...fileArray]);
+                                toast({
+                                  title: "Files Selected",
+                                  description: `Added ${files.length} photo(s): ${fileArray.map(f => f.name).join(', ')}`,
+                                });
                               }
                             };
                             input.click();
@@ -586,6 +642,38 @@ export default function Home() {
                           Record Audio
                         </Button>
                       </div>
+                      
+                      {/* Selected Files Preview */}
+                      {selectedFiles.length > 0 && (
+                        <div className="mt-4 p-4 border rounded-lg bg-blue-50">
+                          <h4 className="font-medium text-gray-900 mb-2">Selected Photos ({selectedFiles.length})</h4>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                            {selectedFiles.map((file, index) => (
+                              <div key={index} className="relative">
+                                <div className="aspect-square bg-white border rounded-lg overflow-hidden">
+                                  {file.type.startsWith('image/') && (
+                                    <img 
+                                      src={URL.createObjectURL(file)} 
+                                      alt={file.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white hover:bg-red-600"
+                                  onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== index))}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex justify-end pt-6 border-t border-gray-100">
