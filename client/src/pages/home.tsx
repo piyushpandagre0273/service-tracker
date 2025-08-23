@@ -1,0 +1,589 @@
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Search, Bell, Edit, MessageSquare, Mic } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { ServiceRequest, Comment } from "@shared/schema";
+import type { UploadResult } from "@uppy/core";
+
+const createRequestSchema = z.object({
+  productName: z.string().min(1, "Product name is required"),
+  serialNumber: z.string().min(1, "Serial number is required"),
+  customerName: z.string().min(1, "Customer name is required"),
+  customerContact: z.string().min(1, "Customer contact is required"),
+  issueDescription: z.string().min(1, "Issue description is required"),
+});
+
+type CreateRequestForm = z.infer<typeof createRequestSchema>;
+
+export default function Home() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [pendingUploads, setPendingUploads] = useState<Record<string, string>>({});
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Form setup
+  const form = useForm<CreateRequestForm>({
+    resolver: zodResolver(createRequestSchema),
+    defaultValues: {
+      productName: "",
+      serialNumber: "",
+      customerName: "",
+      customerContact: "",
+      issueDescription: "",
+    },
+  });
+
+  // Queries
+  const { data: metrics } = useQuery<{
+    totalActive: number;
+    newComplaints: number;
+    underInspection: number;
+    sentToService: number;
+    received: number;
+  }>({
+    queryKey: ["/api/metrics"],
+  });
+
+  const { data: activeRequests, isLoading: activeLoading } = useQuery<ServiceRequest[]>({
+    queryKey: ["/api/service-requests/active"],
+  });
+
+  const { data: completedRequests, isLoading: completedLoading } = useQuery<ServiceRequest[]>({
+    queryKey: ["/api/service-requests/completed"],
+  });
+
+  const { data: searchResults } = useQuery<ServiceRequest[]>({
+    queryKey: ["/api/service-requests/search", { q: searchQuery }],
+    enabled: !!searchQuery,
+  });
+
+  // Mutations
+  const createRequestMutation = useMutation({
+    mutationFn: async (data: CreateRequestForm) => {
+      const response = await apiRequest("POST", "/api/service-requests", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
+      toast({
+        title: "Success",
+        description: "Service request created successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create service request",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const response = await apiRequest("PATCH", `/api/service-requests/${id}`, { status });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
+      toast({
+        title: "Success",
+        description: "Status updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: async ({ requestId, text }: { requestId: string; text: string }) => {
+      const response = await apiRequest("POST", `/api/service-requests/${requestId}/comments`, { text });
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      setCommentInputs(prev => ({ ...prev, [variables.requestId]: "" }));
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests"] });
+      toast({
+        title: "Success",
+        description: "Comment added successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add comment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Display data logic
+  const displayedActiveRequests = useMemo(() => {
+    if (searchQuery && searchResults) {
+      return searchResults.filter((req: ServiceRequest) => req.status !== "completed");
+    }
+    return activeRequests || [];
+  }, [searchQuery, searchResults, activeRequests]);
+
+  const displayedCompletedRequests = useMemo(() => {
+    if (searchQuery && searchResults) {
+      return searchResults.filter((req: ServiceRequest) => req.status === "completed");
+    }
+    return completedRequests || [];
+  }, [searchQuery, searchResults, completedRequests]);
+
+  // Handlers
+  const handleStatusUpdate = (requestId: string, status: string) => {
+    updateStatusMutation.mutate({ id: requestId, status });
+  };
+
+  const handleAddComment = (requestId: string) => {
+    const text = commentInputs[requestId];
+    if (!text?.trim()) return;
+    addCommentMutation.mutate({ requestId, text });
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+  };
+
+  const onSubmit = (data: CreateRequestForm) => {
+    createRequestMutation.mutate(data);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "new": return "bg-blue-100 text-blue-800";
+      case "inspection": return "bg-yellow-100 text-yellow-800";
+      case "service": return "bg-orange-100 text-orange-800";
+      case "received": return "bg-red-100 text-red-800";
+      case "completed": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "new": return "New Complaint";
+      case "inspection": return "Under Inspection";
+      case "service": return "Sent to Service Center";
+      case "received": return "Received";
+      case "completed": return "Completed";
+      default: return status;
+    }
+  };
+
+  const handleGetUploadParameters = async () => {
+    const response = await apiRequest("POST", "/api/objects/upload");
+    const data = await response.json();
+    return {
+      method: "PUT" as const,
+      url: data.uploadURL,
+    };
+  };
+
+  const handleUploadComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    // This would typically be used to update the current form or request with the uploaded file
+    console.log("Upload complete:", result);
+    if (result.successful && result.successful.length > 0) {
+      const uploadURL = result.successful[0].uploadURL;
+      toast({
+        title: "Success",
+        description: "File uploaded successfully",
+      });
+      // Here you would typically update the form or associate the file with a request
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 font-['Inter']">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-semibold text-gray-900" data-testid="header-title">
+                Service Issue Tracker
+              </h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" data-testid="button-notifications">
+                <Bell className="h-5 w-5 text-gray-400" />
+              </Button>
+              <div className="h-8 w-8 rounded-full bg-gray-300" data-testid="img-avatar" />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <p className="text-gray-600">Manage and track product service requests efficiently.</p>
+        </div>
+
+        {/* Search Section */}
+        <Card className="mb-8">
+          <CardContent className="p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Search All Requests</h3>
+            <div className="flex items-center space-x-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Enter Customer Contact or Token #"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search"
+                />
+              </div>
+              <Button variant="outline" onClick={handleClearSearch} data-testid="button-clear-search">
+                Clear
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tab Navigation */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="dashboard" data-testid="tab-dashboard">Dashboard & Active</TabsTrigger>
+            <TabsTrigger value="completed" data-testid="tab-completed">Completed Installations</TabsTrigger>
+          </TabsList>
+
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-8">
+            {/* Metrics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+              <Card className="bg-gray-600 text-white">
+                <CardContent className="p-6">
+                  <div className="text-3xl font-bold" data-testid="metric-total-active">
+                    {metrics?.totalActive || 0}
+                  </div>
+                  <div className="text-sm font-medium text-gray-200">TOTAL ACTIVE</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-blue-600 text-white">
+                <CardContent className="p-6">
+                  <div className="text-3xl font-bold" data-testid="metric-new-complaints">
+                    {metrics?.newComplaints || 0}
+                  </div>
+                  <div className="text-sm font-medium text-blue-100">NEW COMPLAINT</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-yellow-500 text-white">
+                <CardContent className="p-6">
+                  <div className="text-3xl font-bold" data-testid="metric-under-inspection">
+                    {metrics?.underInspection || 0}
+                  </div>
+                  <div className="text-sm font-medium text-yellow-100">UNDER INSPECTION</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-orange-500 text-white">
+                <CardContent className="p-6">
+                  <div className="text-3xl font-bold" data-testid="metric-sent-to-service">
+                    {metrics?.sentToService || 0}
+                  </div>
+                  <div className="text-sm font-medium text-orange-100">SENT TO SERVICE CENTER</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-red-500 text-white">
+                <CardContent className="p-6">
+                  <div className="text-3xl font-bold" data-testid="metric-received">
+                    {metrics?.received || 0}
+                  </div>
+                  <div className="text-sm font-medium text-red-100">RECEIVED</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Create Request Form */}
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-6">Create New Service Request</h3>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="productName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Product Name / Model</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-product-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="serialNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Serial Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-serial-number" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <FormField
+                        control={form.control}
+                        name="customerName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Customer Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-customer-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="customerContact"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Customer Contact (Phone/Email)</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-customer-contact" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="issueDescription"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Detailed description of the issue...</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} rows={4} data-testid="textarea-issue-description" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div>
+                      <Label className="block text-sm font-medium text-gray-700 mb-2">Attachments</Label>
+                      <div className="flex items-center space-x-4">
+                        <ObjectUploader
+                          maxNumberOfFiles={5}
+                          maxFileSize={10485760}
+                          onGetUploadParameters={handleGetUploadParameters}
+                          onComplete={handleUploadComplete}
+                          buttonClassName="flex-1"
+                        >
+                          <div className="flex items-center gap-2 text-sm">
+                            <span>📁</span>
+                            <span>Choose Files</span>
+                          </div>
+                        </ObjectUploader>
+                        <Button type="button" variant="destructive" data-testid="button-record-audio">
+                          <Mic className="h-4 w-4 mr-2" />
+                          Record Audio
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button 
+                      type="submit" 
+                      className="bg-blue-600 hover:bg-blue-700"
+                      disabled={createRequestMutation.isPending}
+                      data-testid="button-submit-request"
+                    >
+                      {createRequestMutation.isPending ? "Submitting..." : "Submit Request"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+
+            {/* Active Requests List */}
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-6">Active Service Requests</h3>
+                {activeLoading ? (
+                  <div data-testid="loading-active-requests">Loading...</div>
+                ) : displayedActiveRequests.length === 0 ? (
+                  <div className="text-gray-500 text-center py-8" data-testid="empty-active-requests">
+                    No active service requests found.
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {displayedActiveRequests.map((request: ServiceRequest) => (
+                      <div key={request.id} className="border-b border-gray-200 pb-6 last:border-b-0" data-testid={`request-${request.id}`}>
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h4 className="text-lg font-medium text-gray-900" data-testid={`text-product-${request.id}`}>
+                              {request.productName} (SN: {request.serialNumber})
+                            </h4>
+                            <div className="text-sm text-gray-600 mt-1">
+                              <span data-testid={`text-customer-${request.id}`}>Customer: {request.customerName} ({request.customerContact})</span><br />
+                              <span data-testid={`text-issue-${request.id}`}>Issue: {request.issueDescription}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-gray-500" data-testid={`text-created-${request.id}`}>
+                              Created: {new Date(request.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-4">
+                            <Button variant="outline" size="sm" data-testid={`button-edit-${request.id}`}>
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                            <Button variant="outline" size="sm" data-testid={`button-comments-${request.id}`}>
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              Comments
+                            </Button>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <Select
+                              value={request.status}
+                              onValueChange={(status) => handleStatusUpdate(request.id, status)}
+                            >
+                              <SelectTrigger className="w-48" data-testid={`select-status-${request.id}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="new">New Complaint</SelectItem>
+                                <SelectItem value="inspection">Under Inspection</SelectItem>
+                                <SelectItem value="service">Sent to Service Center</SelectItem>
+                                <SelectItem value="received">Received</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Comments Section */}
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              type="text"
+                              placeholder="Add a comment..."
+                              value={commentInputs[request.id] || ""}
+                              onChange={(e) => setCommentInputs(prev => ({ ...prev, [request.id]: e.target.value }))}
+                              className="flex-1"
+                              data-testid={`input-comment-${request.id}`}
+                            />
+                            <Button
+                              onClick={() => handleAddComment(request.id)}
+                              className="bg-blue-600 hover:bg-blue-700"
+                              disabled={addCommentMutation.isPending}
+                              data-testid={`button-add-comment-${request.id}`}
+                            >
+                              Post
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Completed Tab */}
+          <TabsContent value="completed">
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-6">
+                  Completed Installations ({displayedCompletedRequests.length})
+                </h3>
+                {completedLoading ? (
+                  <div data-testid="loading-completed-requests">Loading...</div>
+                ) : displayedCompletedRequests.length === 0 ? (
+                  <div className="text-gray-500 text-center py-8" data-testid="empty-completed-requests">
+                    No completed installations found.
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {displayedCompletedRequests.map((request: ServiceRequest) => (
+                      <div key={request.id} className="border-b border-gray-200 pb-6 last:border-b-0" data-testid={`completed-request-${request.id}`}>
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h4 className="text-lg font-medium text-gray-900" data-testid={`text-completed-product-${request.id}`}>
+                              {request.productName} (SN: {request.serialNumber})
+                            </h4>
+                            <div className="text-sm text-gray-600 mt-1">
+                              <span data-testid={`text-completed-customer-${request.id}`}>Customer: {request.customerName} ({request.customerContact})</span><br />
+                              <span data-testid={`text-completed-issue-${request.id}`}>Issue: {request.issueDescription}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-gray-500" data-testid={`text-completed-created-${request.id}`}>
+                              Created: {new Date(request.createdAt).toLocaleString()}
+                            </div>
+                            <div className="mt-2">
+                              <Badge className={getStatusColor(request.status)} data-testid={`badge-status-${request.id}`}>
+                                Status: {getStatusLabel(request.status)}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                          <Button variant="outline" size="sm" data-testid={`button-edit-completed-${request.id}`}>
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button variant="outline" size="sm" data-testid={`button-comments-completed-${request.id}`}>
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Comments
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+}
