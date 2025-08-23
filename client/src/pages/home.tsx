@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,6 +70,30 @@ export default function Home() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showAttachments, setShowAttachments] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+  // Helper function to convert attachment URLs to local backend URLs
+  const normalizeAttachmentUrl = async (url: string): Promise<string> => {
+    if (!url.includes('storage.googleapis.com')) {
+      return url;
+    }
+    
+    try {
+      const response = await fetch('/api/normalize-path', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      
+      if (response.ok) {
+        const { normalizedPath } = await response.json();
+        return normalizedPath;
+      }
+    } catch (error) {
+      console.error('Error normalizing attachment URL:', error);
+    }
+    
+    return url;
+  };
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -309,15 +333,16 @@ export default function Home() {
       
       // Convert Google Cloud URL to local object path that our backend can serve
       if (uploadURL.includes('storage.googleapis.com')) {
-        const urlObj = new URL(uploadURL);
-        const pathParts = urlObj.pathname.split('/');
-        const bucketName = pathParts[1];
-        const objectPath = pathParts.slice(2).join('/');
+        // Call backend to normalize the path properly
+        const response = await fetch('/api/normalize-path', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: uploadURL })
+        });
         
-        // Extract the object ID from the path (assuming structure: /.private/uploads/{id})
-        if (objectPath.includes('/.private/uploads/')) {
-          const objectId = objectPath.split('/.private/uploads/')[1];
-          return `/objects/uploads/${objectId}`;
+        if (response.ok) {
+          const { normalizedPath } = await response.json();
+          return normalizedPath;
         }
       }
       return uploadURL;
@@ -842,17 +867,12 @@ export default function Home() {
                             {request.attachments && request.attachments.length > 0 ? (
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                 {request.attachments.map((attachment, index) => (
-                                  <div key={index} className="relative">
-                                    <img 
-                                      src={attachment} 
-                                      alt={`Attachment ${index + 1}`} 
-                                      className="w-full h-24 object-cover rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
-                                      onClick={() => window.open(attachment, '_blank')}
-                                    />
-                                    <div className="text-xs text-gray-500 mt-1 truncate">
-                                      Photo {index + 1}
-                                    </div>
-                                  </div>
+                                  <AttachmentImage 
+                                    key={index} 
+                                    attachment={attachment} 
+                                    index={index} 
+                                    normalizeUrl={normalizeAttachmentUrl}
+                                  />
                                 ))}
                               </div>
                             ) : (
@@ -1013,17 +1033,12 @@ export default function Home() {
                             {request.attachments && request.attachments.length > 0 ? (
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                 {request.attachments.map((attachment, index) => (
-                                  <div key={index} className="relative">
-                                    <img 
-                                      src={attachment} 
-                                      alt={`Attachment ${index + 1}`} 
-                                      className="w-full h-24 object-cover rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
-                                      onClick={() => window.open(attachment, '_blank')}
-                                    />
-                                    <div className="text-xs text-gray-500 mt-1 truncate">
-                                      Photo {index + 1}
-                                    </div>
-                                  </div>
+                                  <AttachmentImage 
+                                    key={index} 
+                                    attachment={attachment} 
+                                    index={index} 
+                                    normalizeUrl={normalizeAttachmentUrl}
+                                  />
                                 ))}
                               </div>
                             ) : (
@@ -1228,6 +1243,51 @@ function CommentsSection({ requestId }: { requestId: string }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// Helper component to handle attachment images with URL normalization
+function AttachmentImage({ 
+  attachment, 
+  index, 
+  normalizeUrl 
+}: { 
+  attachment: string; 
+  index: number; 
+  normalizeUrl: (url: string) => Promise<string>;
+}) {
+  const [imageUrl, setImageUrl] = useState(attachment);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Normalize URL on mount
+  useEffect(() => {
+    normalizeUrl(attachment).then(url => {
+      setImageUrl(url);
+      setIsLoading(false);
+    });
+  }, [attachment]);
+
+  return (
+    <div className="relative">
+      <div className="w-full h-24 bg-gray-100 rounded-lg border flex items-center justify-center">
+        {isLoading ? (
+          <div className="text-sm text-gray-500">Loading...</div>
+        ) : (
+          <img 
+            src={imageUrl} 
+            alt={`Attachment ${index + 1}`} 
+            className="w-full h-full object-cover rounded-lg cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => window.open(imageUrl, '_blank')}
+            onError={() => {
+              console.error('Failed to load image:', imageUrl);
+            }}
+          />
+        )}
+      </div>
+      <div className="text-xs text-gray-500 mt-1 truncate">
+        Photo {index + 1}
       </div>
     </div>
   );
