@@ -74,11 +74,17 @@ export function ObjectUploader({
       })
   );
 
+  const handleButtonClick = () => {
+    console.log("Choose Files button clicked");
+    alert("Choose Files button was clicked! Opening file picker...");
+    setShowModal(true);
+  };
+
   return (
     <div>
       <Button 
         type="button" 
-        onClick={() => setShowModal(true)} 
+        onClick={handleButtonClick} 
         className={buttonClassName}
       >
         {children}
