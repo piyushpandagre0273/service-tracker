@@ -38,6 +38,7 @@ export default function Home() {
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [editingRequest, setEditingRequest] = useState<ServiceRequest | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -194,11 +195,21 @@ export default function Home() {
 
   // Display data logic
   const displayedActiveRequests = useMemo(() => {
+    let requests: ServiceRequest[] = [];
+    
     if (searchQuery && searchResults) {
-      return searchResults.filter((req: ServiceRequest) => req.status !== "completed");
+      requests = searchResults.filter((req: ServiceRequest) => req.status !== "completed");
+    } else {
+      requests = activeRequests || [];
     }
-    return activeRequests || [];
-  }, [searchQuery, searchResults, activeRequests]);
+    
+    // Apply status filter
+    if (statusFilter) {
+      requests = requests.filter((req: ServiceRequest) => req.status === statusFilter);
+    }
+    
+    return requests;
+  }, [searchQuery, searchResults, activeRequests, statusFilter]);
 
   const displayedCompletedRequests = useMemo(() => {
     if (searchQuery && searchResults) {
@@ -248,6 +259,17 @@ export default function Home() {
       ...prev,
       [requestId]: !prev[requestId]
     }));
+  };
+
+  const handleStatusFilter = (status: string) => {
+    setStatusFilter(current => current === status ? null : status);
+  };
+
+  const getFilterButtonClass = (status: string, baseClasses: string) => {
+    const isActive = statusFilter === status;
+    return `${baseClasses} cursor-pointer transition-all duration-200 hover:scale-105 ${
+      isActive ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-100 transform scale-105' : 'hover:shadow-lg'
+    }`;
   };
 
   const getStatusColor = (status: string) => {
@@ -353,46 +375,71 @@ export default function Home() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-8">
-            {/* Metrics Cards */}
+            {/* Metrics Cards - Now Clickable Filters */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-              <Card className="bg-gray-600 text-white">
+              <Card 
+                className={getFilterButtonClass('', 'bg-gray-600 text-white')}
+                onClick={() => setStatusFilter(null)}
+                data-testid="filter-total-active"
+              >
                 <CardContent className="p-6">
                   <div className="text-3xl font-bold" data-testid="metric-total-active">
                     {metrics?.totalActive || 0}
                   </div>
                   <div className="text-sm font-medium text-gray-200">TOTAL ACTIVE</div>
+                  {statusFilter === null && <div className="text-xs mt-1 text-gray-300">All requests shown</div>}
                 </CardContent>
               </Card>
-              <Card className="bg-blue-600 text-white">
+              <Card 
+                className={getFilterButtonClass('new', 'bg-blue-600 text-white')}
+                onClick={() => handleStatusFilter('new')}
+                data-testid="filter-new-complaints"
+              >
                 <CardContent className="p-6">
                   <div className="text-3xl font-bold" data-testid="metric-new-complaints">
                     {metrics?.newComplaints || 0}
                   </div>
                   <div className="text-sm font-medium text-blue-100">NEW COMPLAINT</div>
+                  {statusFilter === 'new' && <div className="text-xs mt-1 text-blue-200">Filter active</div>}
                 </CardContent>
               </Card>
-              <Card className="bg-yellow-500 text-white">
+              <Card 
+                className={getFilterButtonClass('inspection', 'bg-yellow-500 text-white')}
+                onClick={() => handleStatusFilter('inspection')}
+                data-testid="filter-under-inspection"
+              >
                 <CardContent className="p-6">
                   <div className="text-3xl font-bold" data-testid="metric-under-inspection">
                     {metrics?.underInspection || 0}
                   </div>
                   <div className="text-sm font-medium text-yellow-100">UNDER INSPECTION</div>
+                  {statusFilter === 'inspection' && <div className="text-xs mt-1 text-yellow-200">Filter active</div>}
                 </CardContent>
               </Card>
-              <Card className="bg-orange-500 text-white">
+              <Card 
+                className={getFilterButtonClass('service', 'bg-orange-500 text-white')}
+                onClick={() => handleStatusFilter('service')}
+                data-testid="filter-sent-to-service"
+              >
                 <CardContent className="p-6">
                   <div className="text-3xl font-bold" data-testid="metric-sent-to-service">
                     {metrics?.sentToService || 0}
                   </div>
                   <div className="text-sm font-medium text-orange-100">SENT TO SERVICE CENTER</div>
+                  {statusFilter === 'service' && <div className="text-xs mt-1 text-orange-200">Filter active</div>}
                 </CardContent>
               </Card>
-              <Card className="bg-red-500 text-white">
+              <Card 
+                className={getFilterButtonClass('received', 'bg-red-500 text-white')}
+                onClick={() => handleStatusFilter('received')}
+                data-testid="filter-received"
+              >
                 <CardContent className="p-6">
                   <div className="text-3xl font-bold" data-testid="metric-received">
                     {metrics?.received || 0}
                   </div>
                   <div className="text-sm font-medium text-red-100">RECEIVED</div>
+                  {statusFilter === 'received' && <div className="text-xs mt-1 text-red-200">Filter active</div>}
                 </CardContent>
               </Card>
             </div>
@@ -513,7 +560,21 @@ export default function Home() {
             {/* Active Requests List */}
             <Card>
               <CardContent className="p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-6">Active Service Requests</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Active Service Requests {statusFilter && `(${getStatusLabel(statusFilter)})`}
+                  </h3>
+                  {statusFilter && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setStatusFilter(null)}
+                      data-testid="button-clear-filter"
+                    >
+                      Clear Filter
+                    </Button>
+                  )}
+                </div>
                 {activeLoading ? (
                   <div data-testid="loading-active-requests">Loading...</div>
                 ) : displayedActiveRequests.length === 0 ? (
