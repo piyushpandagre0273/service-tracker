@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Bell, Edit, MessageSquare, Mic } from "lucide-react";
+import { Search, Bell, Edit, MessageSquare, Mic, ChevronDown, ChevronUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -34,12 +35,27 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [pendingUploads, setPendingUploads] = useState<Record<string, string>>({});
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+  const [editingRequest, setEditingRequest] = useState<ServiceRequest | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Form setup
   const form = useForm<CreateRequestForm>({
+    resolver: zodResolver(createRequestSchema),
+    defaultValues: {
+      productName: "",
+      serialNumber: "",
+      customerName: "",
+      customerContact: "",
+      issueDescription: "",
+    },
+  });
+
+  // Edit form setup
+  const editForm = useForm<CreateRequestForm>({
     resolver: zodResolver(createRequestSchema),
     defaultValues: {
       productName: "",
@@ -73,6 +89,14 @@ export default function Home() {
     queryKey: ["/api/service-requests/search", { q: searchQuery }],
     enabled: !!searchQuery,
   });
+
+  // Comments query function - only fetch when comments are expanded
+  const getCommentsQuery = (requestId: string) => {
+    return useQuery<Comment[]>({
+      queryKey: ["/api/service-requests", requestId, "comments"],
+      enabled: expandedComments[requestId] === true,
+    });
+  };
 
   // Mutations
   const createRequestMutation = useMutation({
@@ -128,6 +152,7 @@ export default function Home() {
     onSuccess: (_, variables) => {
       setCommentInputs(prev => ({ ...prev, [variables.requestId]: "" }));
       queryClient.invalidateQueries({ queryKey: ["/api/service-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests", variables.requestId, "comments"] });
       toast({
         title: "Success",
         description: "Comment added successfully",
@@ -137,6 +162,31 @@ export default function Home() {
       toast({
         title: "Error",
         description: "Failed to add comment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateRequestMutation = useMutation({
+    mutationFn: async (data: { id: string; updates: Partial<ServiceRequest> }) => {
+      const response = await apiRequest("PATCH", `/api/service-requests/${data.id}`, data.updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      setIsEditDialogOpen(false);
+      setEditingRequest(null);
+      editForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
+      toast({
+        title: "Success",
+        description: "Service request updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update service request",
         variant: "destructive",
       });
     },
@@ -174,6 +224,30 @@ export default function Home() {
 
   const onSubmit = (data: CreateRequestForm) => {
     createRequestMutation.mutate(data);
+  };
+
+  const onEditSubmit = (data: CreateRequestForm) => {
+    if (!editingRequest) return;
+    updateRequestMutation.mutate({ id: editingRequest.id, updates: data });
+  };
+
+  const handleEditRequest = (request: ServiceRequest) => {
+    setEditingRequest(request);
+    editForm.reset({
+      productName: request.productName,
+      serialNumber: request.serialNumber,
+      customerName: request.customerName,
+      customerContact: request.customerContact,
+      issueDescription: request.issueDescription,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const toggleComments = (requestId: string) => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [requestId]: !prev[requestId]
+    }));
   };
 
   const getStatusColor = (status: string) => {
@@ -469,13 +543,27 @@ export default function Home() {
 
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center space-x-4">
-                            <Button variant="outline" size="sm" data-testid={`button-edit-${request.id}`}>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleEditRequest(request)}
+                              data-testid={`button-edit-${request.id}`}
+                            >
                               <Edit className="h-4 w-4 mr-1" />
                               Edit
                             </Button>
-                            <Button variant="outline" size="sm" data-testid={`button-comments-${request.id}`}>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => toggleComments(request.id)}
+                              data-testid={`button-comments-${request.id}`}
+                            >
                               <MessageSquare className="h-4 w-4 mr-1" />
                               Comments
+                              {expandedComments[request.id] ? 
+                                <ChevronUp className="h-4 w-4 ml-1" /> : 
+                                <ChevronDown className="h-4 w-4 ml-1" />
+                              }
                             </Button>
                           </div>
                           <div className="flex items-center space-x-4">
@@ -498,6 +586,10 @@ export default function Home() {
                         </div>
 
                         {/* Comments Section */}
+                        {expandedComments[request.id] && (
+                          <CommentsSection requestId={request.id} />
+                        )}
+                        
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center space-x-2">
                             <Input
@@ -566,15 +658,36 @@ export default function Home() {
                         </div>
 
                         <div className="flex items-center space-x-4">
-                          <Button variant="outline" size="sm" data-testid={`button-edit-completed-${request.id}`}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleEditRequest(request)}
+                            data-testid={`button-edit-completed-${request.id}`}
+                          >
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
                           </Button>
-                          <Button variant="outline" size="sm" data-testid={`button-comments-completed-${request.id}`}>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => toggleComments(request.id)}
+                            data-testid={`button-comments-completed-${request.id}`}
+                          >
                             <MessageSquare className="h-4 w-4 mr-1" />
                             Comments
+                            {expandedComments[request.id] ? 
+                              <ChevronUp className="h-4 w-4 ml-1" /> : 
+                              <ChevronDown className="h-4 w-4 ml-1" />
+                            }
                           </Button>
                         </div>
+                        
+                        {/* Comments Section for Completed Requests */}
+                        {expandedComments[request.id] && (
+                          <div className="mt-4">
+                            <CommentsSection requestId={request.id} />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -584,6 +697,150 @@ export default function Home() {
           </TabsContent>
         </Tabs>
       </main>
+      
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Service Request</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={editForm.control}
+                  name="productName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Product Name / Model</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="edit-input-product-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="serialNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Serial Number</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="edit-input-serial-number" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={editForm.control}
+                  name="customerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="edit-input-customer-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="customerContact"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Contact (Phone/Email)</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="edit-input-customer-contact" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <FormField
+                control={editForm.control}
+                name="issueDescription"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Detailed description of the issue...</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} rows={4} data-testid="edit-textarea-issue-description" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="flex justify-end space-x-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                  data-testid="button-cancel-edit"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-blue-600 hover:bg-blue-700"
+                  disabled={updateRequestMutation.isPending}
+                  data-testid="button-save-edit"
+                >
+                  {updateRequestMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Comments Section Component
+function CommentsSection({ requestId }: { requestId: string }) {
+  const { data: comments, isLoading: commentsLoading } = useQuery<Comment[]>({
+    queryKey: ["/api/service-requests", requestId, "comments"],
+  });
+
+  if (commentsLoading) {
+    return (
+      <div className="bg-white rounded-lg p-4 mb-4 border" data-testid={`loading-comments-${requestId}`}>
+        <div className="text-sm text-gray-500">Loading comments...</div>
+      </div>
+    );
+  }
+
+  if (!comments || comments.length === 0) {
+    return (
+      <div className="bg-white rounded-lg p-4 mb-4 border" data-testid={`empty-comments-${requestId}`}>
+        <div className="text-sm text-gray-500">No comments yet.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg p-4 mb-4 border" data-testid={`comments-${requestId}`}>
+      <h4 className="font-medium text-gray-900 mb-3">Comments ({comments.length})</h4>
+      <div className="space-y-3">
+        {comments.map((comment) => (
+          <div key={comment.id} className="border-l-2 border-blue-200 pl-4" data-testid={`comment-${comment.id}`}>
+            <div className="text-sm text-gray-900" data-testid={`comment-text-${comment.id}`}>
+              {comment.text}
+            </div>
+            <div className="text-xs text-gray-500 mt-1" data-testid={`comment-date-${comment.id}`}>
+              Posted: {new Date(comment.createdAt).toLocaleString()}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
