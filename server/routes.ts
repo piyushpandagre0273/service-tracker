@@ -140,6 +140,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Serve uploaded objects through our backend
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      await objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving object:", error);
+      res.status(404).json({ error: "File not found" });
+    }
+  });
+
+  // Add attachments to existing service request
+  app.post("/api/service-requests/:id/attachments", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { attachments } = req.body;
+      
+      if (!attachments || !Array.isArray(attachments)) {
+        return res.status(400).json({ error: "Attachments array is required" });
+      }
+
+      const allRequests = await storage.getAllServiceRequests();
+      const request = allRequests.find(r => r.id === id);
+      if (!request) {
+        return res.status(404).json({ error: "Service request not found" });
+      }
+
+      const currentAttachments = request.attachments || [];
+      const updatedRequest = await storage.updateServiceRequest(id, {
+        attachments: [...currentAttachments, ...attachments]
+      });
+
+      res.json(updatedRequest);
+    } catch (error) {
+      console.error("Error adding attachments:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Handle file attachment updates
   app.put("/api/service-requests/:id/attachments", async (req, res) => {
     try {

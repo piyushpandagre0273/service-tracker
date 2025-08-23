@@ -202,6 +202,29 @@ export default function Home() {
     },
   });
 
+  const addAttachmentsMutation = useMutation({
+    mutationFn: async ({ requestId, attachments }: { requestId: string; attachments: string[] }) => {
+      const response = await apiRequest("POST", `/api/service-requests/${requestId}/attachments`, { attachments });
+      return response.json();
+    },
+    onSuccess: () => {
+      setSelectedFiles([]);
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/completed"] });
+      toast({
+        title: "Success",
+        description: "Attachments added successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add attachments",
+        variant: "destructive",
+      });
+    },
+  });
+
   const updateRequestMutation = useMutation({
     mutationFn: async (data: { id: string; updates: Partial<ServiceRequest> }) => {
       const response = await apiRequest("PATCH", `/api/service-requests/${data.id}`, data.updates);
@@ -284,8 +307,20 @@ export default function Home() {
         }
       });
       
-      // Return the object path
-      return uploadURL.split('?')[0]; // Remove query parameters to get clean URL
+      // Convert Google Cloud URL to local object path that our backend can serve
+      if (uploadURL.includes('storage.googleapis.com')) {
+        const urlObj = new URL(uploadURL);
+        const pathParts = urlObj.pathname.split('/');
+        const bucketName = pathParts[1];
+        const objectPath = pathParts.slice(2).join('/');
+        
+        // Extract the object ID from the path (assuming structure: /.private/uploads/{id})
+        if (objectPath.includes('/.private/uploads/')) {
+          const objectId = objectPath.split('/.private/uploads/')[1];
+          return `/objects/uploads/${objectId}`;
+        }
+      }
+      return uploadURL;
     });
     
     return Promise.all(uploadPromises);
@@ -825,6 +860,42 @@ export default function Home() {
                                 No attachments uploaded
                               </div>
                             )}
+                            
+                            {/* Add More Attachments Button */}
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="w-full sm:w-auto"
+                                onClick={() => {
+                                  const input = document.createElement('input');
+                                  input.type = 'file';
+                                  input.accept = 'image/*';
+                                  input.multiple = true;
+                                  input.onchange = async (e) => {
+                                    const files = (e.target as HTMLInputElement).files;
+                                    if (files && files.length > 0) {
+                                      const fileArray = Array.from(files);
+                                      try {
+                                        const attachments = await uploadFiles(fileArray);
+                                        addAttachmentsMutation.mutate({ requestId: request.id, attachments });
+                                      } catch (error) {
+                                        toast({
+                                          title: "Error",
+                                          description: "Failed to upload files",
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }
+                                  };
+                                  input.click();
+                                }}
+                                data-testid={`button-add-attachments-${request.id}`}
+                              >
+                                <Camera className="h-4 w-4 mr-2" />
+                                Attach Images
+                              </Button>
+                            </div>
                           </div>
                         )}
 
@@ -960,6 +1031,42 @@ export default function Home() {
                                 No attachments uploaded
                               </div>
                             )}
+                            
+                            {/* Add More Attachments Button */}
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="w-full sm:w-auto"
+                                onClick={() => {
+                                  const input = document.createElement('input');
+                                  input.type = 'file';
+                                  input.accept = 'image/*';
+                                  input.multiple = true;
+                                  input.onchange = async (e) => {
+                                    const files = (e.target as HTMLInputElement).files;
+                                    if (files && files.length > 0) {
+                                      const fileArray = Array.from(files);
+                                      try {
+                                        const attachments = await uploadFiles(fileArray);
+                                        addAttachmentsMutation.mutate({ requestId: request.id, attachments });
+                                      } catch (error) {
+                                        toast({
+                                          title: "Error",
+                                          description: "Failed to upload files",
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }
+                                  };
+                                  input.click();
+                                }}
+                                data-testid={`button-add-attachments-${request.id}`}
+                              >
+                                <Camera className="h-4 w-4 mr-2" />
+                                Attach Images
+                              </Button>
+                            </div>
                           </div>
                         )}
 
