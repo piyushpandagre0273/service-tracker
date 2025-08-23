@@ -30,6 +30,35 @@ const createRequestSchema = z.object({
 
 type CreateRequestForm = z.infer<typeof createRequestSchema>;
 
+// Comments Button Component with Count
+function CommentsButton({ requestId, isExpanded, onToggle }: { 
+  requestId: string; 
+  isExpanded: boolean; 
+  onToggle: () => void; 
+}) {
+  const { data: comments, isLoading } = useQuery<Comment[]>({
+    queryKey: ["/api/service-requests", requestId, "comments"],
+  });
+
+  const commentCount = comments?.length || 0;
+
+  return (
+    <Button 
+      variant="outline" 
+      size="sm"
+      onClick={onToggle}
+      data-testid={`button-comments-${requestId}`}
+    >
+      <MessageSquare className="h-4 w-4 mr-1" />
+      Comments {!isLoading && `(${commentCount})`}
+      {isExpanded ? 
+        <ChevronUp className="h-4 w-4 ml-1" /> : 
+        <ChevronDown className="h-4 w-4 ml-1" />
+      }
+    </Button>
+  );
+}
+
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -91,11 +120,11 @@ export default function Home() {
     enabled: !!searchQuery,
   });
 
-  // Comments query function - only fetch when comments are expanded
-  const getCommentsQuery = (requestId: string) => {
+  // Comments query function - fetch comment counts for all requests
+  const useCommentsQuery = (requestId: string) => {
     return useQuery<Comment[]>({
       queryKey: ["/api/service-requests", requestId, "comments"],
-      enabled: expandedComments[requestId] === true,
+      enabled: true, // Always fetch to show counts
     });
   };
 
@@ -613,19 +642,11 @@ export default function Home() {
                               <Edit className="h-4 w-4 mr-1" />
                               Edit
                             </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => toggleComments(request.id)}
-                              data-testid={`button-comments-${request.id}`}
-                            >
-                              <MessageSquare className="h-4 w-4 mr-1" />
-                              Comments
-                              {expandedComments[request.id] ? 
-                                <ChevronUp className="h-4 w-4 ml-1" /> : 
-                                <ChevronDown className="h-4 w-4 ml-1" />
-                              }
-                            </Button>
+                            <CommentsButton 
+                              requestId={request.id} 
+                              isExpanded={expandedComments[request.id]} 
+                              onToggle={() => toggleComments(request.id)}
+                            />
                           </div>
                           <div className="flex items-center space-x-4">
                             <Select
@@ -728,19 +749,11 @@ export default function Home() {
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
                           </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => toggleComments(request.id)}
-                            data-testid={`button-comments-completed-${request.id}`}
-                          >
-                            <MessageSquare className="h-4 w-4 mr-1" />
-                            Comments
-                            {expandedComments[request.id] ? 
-                              <ChevronUp className="h-4 w-4 ml-1" /> : 
-                              <ChevronDown className="h-4 w-4 ml-1" />
-                            }
-                          </Button>
+                          <CommentsButton 
+                            requestId={request.id} 
+                            isExpanded={expandedComments[request.id]} 
+                            onToggle={() => toggleComments(request.id)}
+                          />
                         </div>
                         
                         {/* Comments Section for Completed Requests */}
