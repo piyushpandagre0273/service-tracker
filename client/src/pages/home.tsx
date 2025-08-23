@@ -551,38 +551,31 @@ export default function Home() {
                       )}
                     />
 
-                    <div className="space-y-4">
-                      <Label className="block text-sm font-medium text-gray-900 mb-3">Attachments</Label>
-                      <div className="bg-gray-50 rounded-xl p-6 border-2 border-dashed border-gray-200 hover:border-blue-300 transition-colors">
-                        <div className="text-center mb-4">
-                          <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-sm text-gray-600 mb-1">Drop your files here or browse files</p>
-                          <p className="text-xs text-gray-500">Support for multiple file types, up to 10MB each</p>
-                        </div>
+                    <div>
+                      <Label className="block text-sm font-medium text-gray-900 mb-4">Attachments</Label>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <ObjectUploader
+                          maxNumberOfFiles={5}
+                          maxFileSize={10485760}
+                          onGetUploadParameters={handleGetUploadParameters}
+                          onComplete={handleUploadComplete}
+                          buttonClassName="w-full sm:flex-1 bg-white hover:bg-blue-50 border border-blue-200 text-blue-700 hover:text-blue-800 font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center cursor-pointer"
+                        >
+                          <div className="flex items-center justify-center">
+                            <FileText className="h-4 w-4 mr-2" />
+                            <span>Choose Files</span>
+                          </div>
+                        </ObjectUploader>
                         
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <ObjectUploader
-                            maxNumberOfFiles={5}
-                            maxFileSize={10485760}
-                            onGetUploadParameters={handleGetUploadParameters}
-                            onComplete={handleUploadComplete}
-                            buttonClassName="w-full sm:flex-1 bg-white hover:bg-blue-50 border border-blue-200 text-blue-700 hover:text-blue-800 font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center cursor-pointer"
-                          >
-                            <div className="flex items-center justify-center">
-                              <FileText className="h-4 w-4 mr-2" />
-                              <span>Choose Files</span>
-                            </div>
-                          </ObjectUploader>
-                          
-                          <Button 
-                            type="button" 
-                            className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
-                            data-testid="button-record-audio"
-                          >
-                            <Mic className="h-4 w-4 mr-2" />
-                            Record Audio
-                          </Button>
-                        </div>
+                        <Button 
+                          type="button" 
+                          className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
+                          data-testid="button-record-audio"
+                          onClick={() => alert('Record Audio feature would be implemented here. This would open audio recording interface.')}
+                        >
+                          <Mic className="h-4 w-4 mr-2" />
+                          Record Audio
+                        </Button>
                       </div>
                     </div>
 
