@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Bell, Edit, MessageSquare, Mic, ChevronDown, ChevronUp, Send, Camera } from "lucide-react";
+import { Search, Bell, Edit, MessageSquare, Mic, ChevronDown, ChevronUp, Send, Camera, Paperclip, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ServiceRequest, Comment } from "@shared/schema";
@@ -67,6 +67,7 @@ export default function Home() {
   const [editingRequest, setEditingRequest] = useState<ServiceRequest | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [showAttachments, setShowAttachments] = useState<string | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -673,6 +674,15 @@ export default function Home() {
                               isExpanded={expandedComments[request.id]} 
                               onToggle={() => toggleComments(request.id)}
                             />
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setShowAttachments(showAttachments === request.id ? null : request.id)}
+                              data-testid={`button-attachments-${request.id}`}
+                            >
+                              <Paperclip className="h-4 w-4 mr-1" />
+                              Attachments ({request.attachments?.length || 0})
+                            </Button>
                           </div>
                           <div className="flex items-center space-x-4">
                             <Select
@@ -692,6 +702,43 @@ export default function Home() {
                             </Select>
                           </div>
                         </div>
+
+                        {/* Attachments Section */}
+                        {showAttachments === request.id && (
+                          <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+                            <div className="flex items-center justify-between mb-3">
+                              <h5 className="font-medium text-gray-900">Attachments</h5>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => setShowAttachments(null)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            {request.attachments && request.attachments.length > 0 ? (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                {request.attachments.map((attachment, index) => (
+                                  <div key={index} className="relative">
+                                    <img 
+                                      src={attachment} 
+                                      alt={`Attachment ${index + 1}`} 
+                                      className="w-full h-24 object-cover rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
+                                      onClick={() => window.open(attachment, '_blank')}
+                                    />
+                                    <div className="text-xs text-gray-500 mt-1 truncate">
+                                      Photo {index + 1}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-gray-500 text-center py-4">
+                                No attachments uploaded
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Comments Section */}
                         {expandedComments[request.id] && (
@@ -780,8 +827,54 @@ export default function Home() {
                             isExpanded={expandedComments[request.id]} 
                             onToggle={() => toggleComments(request.id)}
                           />
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setShowAttachments(showAttachments === request.id ? null : request.id)}
+                            data-testid={`button-attachments-completed-${request.id}`}
+                          >
+                            <Paperclip className="h-4 w-4 mr-1" />
+                            Attachments ({request.attachments?.length || 0})
+                          </Button>
                         </div>
                         
+                        {/* Attachments Section */}
+                        {showAttachments === request.id && (
+                          <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+                            <div className="flex items-center justify-between mb-3">
+                              <h5 className="font-medium text-gray-900">Attachments</h5>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => setShowAttachments(null)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            {request.attachments && request.attachments.length > 0 ? (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                {request.attachments.map((attachment, index) => (
+                                  <div key={index} className="relative">
+                                    <img 
+                                      src={attachment} 
+                                      alt={`Attachment ${index + 1}`} 
+                                      className="w-full h-24 object-cover rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
+                                      onClick={() => window.open(attachment, '_blank')}
+                                    />
+                                    <div className="text-xs text-gray-500 mt-1 truncate">
+                                      Photo {index + 1}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-gray-500 text-center py-4">
+                                No attachments uploaded
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Comments Section for Completed Requests */}
                         {expandedComments[request.id] && (
                           <div className="mt-4">
