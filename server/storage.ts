@@ -1,5 +1,6 @@
-import { type ServiceRequest, type InsertServiceRequest, type Comment, type InsertComment } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type ServiceRequest, type InsertServiceRequest, type Comment, type InsertComment, serviceRequests, comments } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, asc, or, ilike, ne } from "drizzle-orm";
 
 export interface IStorage {
   // Service Requests
@@ -25,92 +26,73 @@ export interface IStorage {
   }>;
 }
 
-export class MemStorage implements IStorage {
-  private serviceRequests: Map<string, ServiceRequest>;
-  private comments: Map<string, Comment>;
-
-  constructor() {
-    this.serviceRequests = new Map();
-    this.comments = new Map();
-  }
+export class DatabaseStorage implements IStorage {
+  constructor() {}
 
   async getServiceRequest(id: string): Promise<ServiceRequest | undefined> {
-    return this.serviceRequests.get(id);
+    const [result] = await db.select().from(serviceRequests).where(eq(serviceRequests.id, id));
+    return result;
   }
 
   async getAllServiceRequests(): Promise<ServiceRequest[]> {
-    return Array.from(this.serviceRequests.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    return await db.select().from(serviceRequests).orderBy(desc(serviceRequests.createdAt));
   }
 
   async getActiveServiceRequests(): Promise<ServiceRequest[]> {
-    return Array.from(this.serviceRequests.values())
-      .filter(request => request.status !== "completed")
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return await db.select().from(serviceRequests)
+      .where(ne(serviceRequests.status, "completed"))
+      .orderBy(desc(serviceRequests.createdAt));
   }
 
   async getCompletedServiceRequests(): Promise<ServiceRequest[]> {
-    return Array.from(this.serviceRequests.values())
-      .filter(request => request.status === "completed")
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return await db.select().from(serviceRequests)
+      .where(eq(serviceRequests.status, "completed"))
+      .orderBy(desc(serviceRequests.createdAt));
   }
 
   async createServiceRequest(insertServiceRequest: InsertServiceRequest): Promise<ServiceRequest> {
-    const id = randomUUID();
-    const now = new Date();
-    const serviceRequest: ServiceRequest = {
-      ...insertServiceRequest,
-      id,
-      status: insertServiceRequest.status || "new",
-      attachments: insertServiceRequest.attachments || [],
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.serviceRequests.set(id, serviceRequest);
-    return serviceRequest;
+    const [result] = await db.insert(serviceRequests)
+      .values({
+        ...insertServiceRequest,
+        status: insertServiceRequest.status || "new",
+        attachments: insertServiceRequest.attachments || [],
+      })
+      .returning();
+    return result;
   }
 
   async updateServiceRequest(id: string, updates: Partial<ServiceRequest>): Promise<ServiceRequest | undefined> {
-    const existing = this.serviceRequests.get(id);
-    if (!existing) return undefined;
-
-    const updated: ServiceRequest = {
-      ...existing,
-      ...updates,
-      updatedAt: new Date(),
-    };
-    this.serviceRequests.set(id, updated);
-    return updated;
+    const [result] = await db.update(serviceRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(serviceRequests.id, id))
+      .returning();
+    return result;
   }
 
   async searchServiceRequests(query: string): Promise<ServiceRequest[]> {
-    const lowercaseQuery = query.toLowerCase();
-    return Array.from(this.serviceRequests.values())
-      .filter(request => 
-        request.customerContact.toLowerCase().includes(lowercaseQuery) ||
-        request.serialNumber.toLowerCase().includes(lowercaseQuery) ||
-        request.customerName.toLowerCase().includes(lowercaseQuery) ||
-        request.productName.toLowerCase().includes(lowercaseQuery)
+    return await db.select().from(serviceRequests)
+      .where(
+        or(
+          ilike(serviceRequests.customerContact, `%${query}%`),
+          ilike(serviceRequests.serialNumber, `%${query}%`),
+          ilike(serviceRequests.customerName, `%${query}%`),
+          ilike(serviceRequests.productName, `%${query}%`)
+        )
       )
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .orderBy(desc(serviceRequests.createdAt));
   }
 
   async getCommentsByServiceRequestId(serviceRequestId: string): Promise<Comment[]> {
-    return Array.from(this.comments.values())
-      .filter(comment => comment.serviceRequestId === serviceRequestId)
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    return await db.select().from(comments)
+      .where(eq(comments.serviceRequestId, serviceRequestId))
+      .orderBy(asc(comments.createdAt));
   }
 
   async createComment(insertComment: InsertComment): Promise<Comment> {
-    const id = randomUUID();
-    const comment: Comment = {
-      ...insertComment,
-      id,
-      createdAt: new Date(),
-    };
-    this.comments.set(id, comment);
-    return comment;
+    const [result] = await db.insert(comments)
+      .values(insertComment)
+      .returning();
+    return result;
   }
 
   async getMetrics(): Promise<{
@@ -132,4 +114,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
