@@ -1476,9 +1476,7 @@ function AttachmentImage({
   const [imageUrl, setImageUrl] = useState(attachment);
   const [isLoading, setIsLoading] = useState(true);
   const [isImage, setIsImage] = useState(true);
-
-  // Check if attachment is likely a PDF based on URL
-  const isPDF = attachment.toLowerCase().includes('.pdf') || attachment.toLowerCase().includes('pdf');
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   // Normalize URL on mount
   useEffect(() => {
@@ -1488,12 +1486,15 @@ function AttachmentImage({
     });
   }, [attachment]);
 
+  // Show PDF icon if image loading failed or if it's likely a PDF
+  const shouldShowPDF = imageLoadFailed || !isImage;
+
   return (
     <div className="relative">
       <div className="w-full h-24 bg-gray-100 rounded-lg border flex items-center justify-center">
         {isLoading ? (
           <div className="text-sm text-gray-500">Loading...</div>
-        ) : isPDF ? (
+        ) : shouldShowPDF ? (
           <div 
             className="flex flex-col items-center justify-center text-red-600 cursor-pointer hover:bg-gray-200 w-full h-full rounded-lg transition-colors"
             onClick={() => window.open(imageUrl, '_blank')}
@@ -1501,7 +1502,7 @@ function AttachmentImage({
             <div className="w-12 h-12 mb-1 flex items-center justify-center bg-red-100 rounded-lg">
               <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24">
                 <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                <path d="M14.5,16.5V15H16V13.5H14.5V12H13V13.5H11.5V15H13V16.5H14.5Z" fill="white"/>
+                <path d="M6,14H8V12H6V14M10,14H12V12H10V14M14,14H16V12H14V14M6,16H8V18H6V16M10,16H12V18H10V16M14,16H16V18H14V16Z" fill="#dc2626"/>
               </svg>
             </div>
             <span className="text-xs font-medium">PDF</span>
@@ -1515,12 +1516,13 @@ function AttachmentImage({
             onError={() => {
               console.error('Failed to load image:', imageUrl);
               setIsImage(false);
+              setImageLoadFailed(true);
             }}
           />
         )}
       </div>
       <div className="text-xs text-gray-500 mt-1 truncate">
-        {isPDF ? `PDF ${index + 1}` : `Photo ${index + 1}`}
+        {shouldShowPDF ? `PDF ${index + 1}` : `Photo ${index + 1}`}
       </div>
     </div>
   );
