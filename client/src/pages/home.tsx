@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Bell, Edit, MessageSquare, Mic, ChevronDown, ChevronUp, Send, Camera, Paperclip, X, Trash2 } from "lucide-react";
+import { Search, Bell, Edit, MessageSquare, ChevronDown, ChevronUp, Send, Paperclip, X, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ServiceRequest, Comment } from "@shared/schema";
@@ -708,15 +708,15 @@ export default function Home() {
 
                     <div>
                       <Label className="block text-sm font-medium text-gray-900 mb-4">Attachments</Label>
-                      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                      <div className="flex justify-center">
                         <Button 
                           type="button" 
                           className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
-                          data-testid="button-upload-photo"
+                          data-testid="button-attachments"
                           onClick={() => {
                             const input = document.createElement('input');
                             input.type = 'file';
-                            input.accept = 'image/*';
+                            input.accept = 'image/jpeg,image/png,video/*,.pdf';
                             input.multiple = true;
                             input.onchange = (e) => {
                               const files = (e.target as HTMLInputElement).files;
@@ -725,25 +725,15 @@ export default function Home() {
                                 setSelectedFiles(prev => [...prev, ...fileArray]);
                                 toast({
                                   title: "Files Selected",
-                                  description: `Added ${files.length} photo(s): ${fileArray.map(f => f.name).join(', ')}`,
+                                  description: `Added ${files.length} file(s): ${fileArray.map(f => f.name).join(', ')}`,
                                 });
                               }
                             };
                             input.click();
                           }}
                         >
-                          <Camera className="h-4 w-4 mr-2" />
-                          Upload Photo
-                        </Button>
-                        
-                        <Button 
-                          type="button" 
-                          className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
-                          data-testid="button-record-audio"
-                          onClick={() => alert('Record Audio feature would be implemented here. This would open audio recording interface.')}
-                        >
-                          <Mic className="h-4 w-4 mr-2" />
-                          Record Audio
+                          <Paperclip className="h-4 w-4 mr-2" />
+                          Attachments
                         </Button>
                       </div>
                       
