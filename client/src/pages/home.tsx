@@ -754,30 +754,67 @@ export default function Home() {
                       
                       {/* Selected Files Preview */}
                       {selectedFiles.length > 0 && (
-                        <div className="mt-4 p-4 border rounded-lg bg-blue-50">
-                          <h4 className="font-medium text-gray-900 mb-2">Selected Photos ({selectedFiles.length})</h4>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                          <div className="flex items-center mb-3">
+                            <Paperclip className="h-4 w-4 text-gray-600 mr-2" />
+                            <h4 className="text-sm font-medium text-gray-800">Attached files:</h4>
+                          </div>
+                          <div className="space-y-3">
                             {selectedFiles.map((file, index) => (
                               <div key={index} className="relative">
-                                <div className="aspect-square bg-white border rounded-lg overflow-hidden">
-                                  {file.type.startsWith('image/') && (
-                                    <img 
-                                      src={URL.createObjectURL(file)} 
-                                      alt={file.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  )}
+                                <div className="bg-gray-100 border border-gray-200 rounded-lg p-3">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center space-x-2">
+                                      <Paperclip className="h-4 w-4 text-gray-500" />
+                                      <span className="text-sm font-medium text-gray-800">Attachment {index + 1}</span>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                      onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== index))}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <div className="w-full h-20 bg-white border border-gray-200 rounded flex items-center justify-center mb-2">
+                                    {file.type.startsWith('image/') ? (
+                                      <img 
+                                        src={URL.createObjectURL(file)} 
+                                        alt={file.name}
+                                        className="max-h-16 max-w-full object-contain rounded"
+                                        onLoad={() => URL.revokeObjectURL(URL.createObjectURL(file))}
+                                      />
+                                    ) : file.type === 'application/pdf' ? (
+                                      <div className="flex items-center justify-center text-red-600">
+                                        <div className="flex flex-col items-center">
+                                          <div className="w-8 h-8 mb-1 flex items-center justify-center bg-red-100 rounded text-xs font-bold">
+                                            PDF
+                                          </div>
+                                          <span className="text-xs text-gray-500">PDF Document</span>
+                                        </div>
+                                      </div>
+                                    ) : file.type.startsWith('video/') ? (
+                                      <div className="flex items-center justify-center text-purple-600">
+                                        <div className="flex flex-col items-center">
+                                          <div className="w-8 h-8 mb-1 flex items-center justify-center bg-purple-100 rounded text-xs font-bold">
+                                            VID
+                                          </div>
+                                          <span className="text-xs text-gray-500">Video File</span>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-center text-gray-600">
+                                        <div className="flex flex-col items-center">
+                                          <Paperclip className="w-6 h-6 mb-1" />
+                                          <span className="text-xs text-gray-500">File</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-600 truncate">{file.name}</p>
                                 </div>
-                                <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white hover:bg-red-600"
-                                  onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== index))}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
                               </div>
                             ))}
                           </div>
@@ -791,13 +828,6 @@ export default function Home() {
                         disabled={createRequestMutation.isPending}
                         className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none min-w-[160px]"
                         data-testid="button-submit-request"
-                        onClick={(e) => {
-                          console.log('Submit button clicked!');
-                          console.log('Button event:', e);
-                          console.log('Form valid:', form.formState.isValid);
-                          console.log('Form errors:', form.formState.errors);
-                          console.log('Form values:', form.getValues());
-                        }}
                       >
                         {createRequestMutation.isPending ? (
                           <>
