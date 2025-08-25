@@ -348,11 +348,16 @@ export default function Home() {
     // Upload files sequentially to avoid overwhelming the system
     for (const file of files) {
       try {
-        // Get upload URL from our backend
+        console.log(`Starting upload for file: ${file.name} (${file.size} bytes, ${file.type})`);
+        
+        // Step 1: Get upload URL from our backend
+        console.log('Step 1: Getting upload URL from backend...');
         const response = await apiRequest('POST', '/api/objects/upload', {});
         const { uploadURL } = await response.json();
+        console.log('Step 1 complete: Got upload URL from backend');
         
-        // Upload file directly to Google Cloud Storage
+        // Step 2: Upload file directly to Google Cloud Storage
+        console.log('Step 2: Uploading file to Google Cloud Storage...');
         const uploadResponse = await fetch(uploadURL, {
           method: 'PUT',
           body: file,
@@ -365,11 +370,18 @@ export default function Home() {
           const errorText = await uploadResponse.text().catch(() => uploadResponse.statusText);
           throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
         }
+        console.log('Step 2 complete: Google Cloud upload response received');
+        
+        // Step 3: Extract the base URL without query parameters to get the actual object URL
+        console.log('Step 3: Normalizing path...');
+        const objectURL = uploadURL.split('?')[0];
         
         // Normalize the path for our backend to serve
-        const normalizeResponse = await apiRequest('POST', '/api/normalize-path', { url: uploadURL });
+        const normalizeResponse = await apiRequest('POST', '/api/normalize-path', { url: objectURL });
         const { normalizedPath } = await normalizeResponse.json();
+        console.log('Step 3 complete: Path normalization response received');
         
+        console.log(`Upload complete for ${file.name}: ${normalizedPath}`);
         results.push(normalizedPath);
       } catch (error) {
         console.error(`Error uploading file ${file.name}:`, error);
