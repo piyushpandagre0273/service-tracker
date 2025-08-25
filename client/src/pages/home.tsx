@@ -1050,7 +1050,7 @@ export default function Home() {
                                 data-testid={`button-add-attachments-${request.id}`}
                               >
                                 <Camera className="h-4 w-4 mr-2" />
-                                Attach Images
+                                Add Attachments
                               </Button>
                             </div>
                           </div>
@@ -1302,7 +1302,7 @@ export default function Home() {
                                 data-testid={`button-add-attachments-${request.id}`}
                               >
                                 <Camera className="h-4 w-4 mr-2" />
-                                Attach Images
+                                Add Attachments
                               </Button>
                             </div>
                           </div>
