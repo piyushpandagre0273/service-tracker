@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Bell, Edit, MessageSquare, ChevronDown, ChevronUp, Send, Paperclip, X, Trash2 } from "lucide-react";
+import { Search, Bell, Edit, MessageSquare, ChevronDown, ChevronUp, Send, Paperclip, X, Trash2, Camera } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ServiceRequest, Comment } from "@shared/schema";
@@ -940,7 +940,7 @@ export default function Home() {
                                 onClick={() => {
                                   const input = document.createElement('input');
                                   input.type = 'file';
-                                  input.accept = 'image/*';
+                                  input.accept = 'image/jpeg,image/png,video/*,.pdf';
                                   input.multiple = true;
                                   input.onchange = async (e) => {
                                     const files = (e.target as HTMLInputElement).files;
@@ -1017,7 +1017,7 @@ export default function Home() {
                               onClick={async () => {
                                 const input = document.createElement('input');
                                 input.type = 'file';
-                                input.accept = 'image/*';
+                                input.accept = 'image/jpeg,image/png,video/*,.pdf';
                                 input.multiple = true;
                                 input.onchange = async (e) => {
                                   const files = (e.target as HTMLInputElement).files;
@@ -1189,7 +1189,7 @@ export default function Home() {
                                 onClick={() => {
                                   const input = document.createElement('input');
                                   input.type = 'file';
-                                  input.accept = 'image/*';
+                                  input.accept = 'image/jpeg,image/png,video/*,.pdf';
                                   input.multiple = true;
                                   input.onchange = async (e) => {
                                     const files = (e.target as HTMLInputElement).files;
