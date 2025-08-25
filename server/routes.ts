@@ -171,6 +171,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Normalize path endpoint (was missing)
+  app.post("/api/normalize-path", async (req, res) => {
+    try {
+      const { url } = req.body;
+      if (!url) {
+        return res.status(400).json({ error: "URL is required" });
+      }
+      
+      const objectStorageService = new ObjectStorageService();
+      const normalizedPath = objectStorageService.normalizeObjectEntityPath(url);
+      res.json({ normalizedPath });
+    } catch (error) {
+      console.error("Error normalizing path:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Serve uploaded objects through our backend
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {

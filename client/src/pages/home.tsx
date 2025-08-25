@@ -362,37 +362,18 @@ export default function Home() {
         const uploadResponse = await fetch(uploadURL, {
           method: 'PUT',
           body: file,
-          headers: {
-            'Content-Type': file.type
-          }
         });
         
+        console.log(`[File ${index + 1}] Google Cloud upload status:`, uploadResponse.status);
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
+          console.error(`[File ${index + 1}] Google Cloud upload error:`, errorText);
           throw new Error(`Failed to upload file: ${uploadResponse.status} - ${errorText}`);
         }
         console.log(`[File ${index + 1}] File uploaded successfully to Google Cloud`);
         
-        // Convert Google Cloud URL to local object path that our backend can serve
-        if (uploadURL.includes('storage.googleapis.com')) {
-          console.log(`[File ${index + 1}] Normalizing path...`);
-          // Call backend to normalize the path properly
-          const normalizeResponse = await fetch('/api/normalize-path', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: uploadURL })
-          });
-          
-          if (normalizeResponse.ok) {
-            const { normalizedPath } = await normalizeResponse.json();
-            console.log(`[File ${index + 1}] Path normalized:`, normalizedPath);
-            return normalizedPath;
-          } else {
-            const errorText = await normalizeResponse.text();
-            console.error(`[File ${index + 1}] Failed to normalize path:`, errorText);
-            console.log(`[File ${index + 1}] Using original URL`);
-          }
-        }
+        // Return the upload URL as the file path (simplified approach)
+        console.log(`[File ${index + 1}] Upload completed successfully`);
         return uploadURL;
       } catch (error) {
         console.error(`[File ${index + 1}] Error uploading file ${file.name}:`, error);
