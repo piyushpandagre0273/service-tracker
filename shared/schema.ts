@@ -18,7 +18,7 @@ export const serviceRequests = pgTable("service_requests", {
 
 export const comments = pgTable("comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  serviceRequestId: varchar("service_request_id").notNull().references(() => serviceRequests.id),
+  serviceRequestId: varchar("service_request_id").notNull().references(() => serviceRequests.id, { onDelete: "cascade" }),
   text: text("text").notNull(),
   attachments: text("attachments").array().default([]),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),

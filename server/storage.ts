@@ -71,11 +71,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteServiceRequest(id: string): Promise<void> {
-    // Delete the service request
-    await db.delete(serviceRequests).where(eq(serviceRequests.id, id));
-    
-    // Delete associated comments
+    // Delete associated comments first (due to foreign key constraint)
     await db.delete(comments).where(eq(comments.serviceRequestId, id));
+    
+    // Then delete the service request
+    await db.delete(serviceRequests).where(eq(serviceRequests.id, id));
   }
 
   async searchServiceRequests(query: string): Promise<ServiceRequest[]> {
