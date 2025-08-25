@@ -143,26 +143,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // File upload endpoints
   app.post("/api/objects/upload", async (req, res) => {
     try {
-      console.log("=== Upload URL Request ===");
-      console.log("Request from:", req.ip);
-      console.log("Headers:", req.headers);
-      console.log("Body:", req.body);
-      
       const objectStorageService = new ObjectStorageService();
-      console.log("ObjectStorageService created successfully");
-      
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      console.log("Upload URL generated successfully:", uploadURL.substring(0, 100) + "...");
-      
       res.json({ uploadURL });
-      console.log("=== Upload URL Response Sent ===");
     } catch (error) {
-      console.error("ERROR in upload URL generation:");
-      console.error("Error type:", error?.constructor?.name);
-      console.error("Error message:", error instanceof Error ? error.message : error);
-      console.error("Error stack:", error instanceof Error ? error.stack : undefined);
-      console.error("=== End Upload URL Error ===");
-      res.status(500).json({ error: "Internal server error", details: error instanceof Error ? error.message : String(error) });
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
@@ -183,18 +169,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test upload endpoint to verify the complete flow
-  app.post("/api/test-upload", async (req, res) => {
-    try {
-      res.json({ 
-        status: "Upload system is ready",
-        message: "File uploads are working properly" 
-      });
-    } catch (error) {
-      console.error("Test upload error:", error);
-      res.status(500).json({ error: "Upload system not ready" });
-    }
-  });
 
   // Serve uploaded objects through our backend
   app.get("/objects/:objectPath(*)", async (req, res) => {
