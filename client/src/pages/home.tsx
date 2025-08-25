@@ -16,15 +16,12 @@ import { z } from "zod";
 import { Search, Bell, Edit, MessageSquare, ChevronDown, ChevronUp, Send, Paperclip, X, Trash2, Camera } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { insertServiceRequestSchema, type InsertServiceRequest } from "@shared/schema";
 import type { ServiceRequest, Comment } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
 
-const createRequestSchema = z.object({
-  productName: z.string().min(1, "Product name is required"),
-  serialNumber: z.string().min(1, "Serial number is required"),
-  customerName: z.string().min(1, "Customer name is required"),
-  customerContact: z.string().min(1, "Customer contact is required"),
-  issueDescription: z.string().min(1, "Issue description is required"),
+// Use the shared schema with validation
+const createRequestSchema = insertServiceRequestSchema.extend({
   attachments: z.array(z.string()).optional().default([]),
 });
 
@@ -108,6 +105,7 @@ export default function Home() {
       customerName: "",
       customerContact: "",
       issueDescription: "",
+      attachments: [],
     },
   });
 
@@ -793,6 +791,13 @@ export default function Home() {
                         disabled={createRequestMutation.isPending}
                         className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none min-w-[160px]"
                         data-testid="button-submit-request"
+                        onClick={(e) => {
+                          console.log('Submit button clicked!');
+                          console.log('Button event:', e);
+                          console.log('Form valid:', form.formState.isValid);
+                          console.log('Form errors:', form.formState.errors);
+                          console.log('Form values:', form.getValues());
+                        }}
                       >
                         {createRequestMutation.isPending ? (
                           <>
