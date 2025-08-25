@@ -1475,6 +1475,10 @@ function AttachmentImage({
 }) {
   const [imageUrl, setImageUrl] = useState(attachment);
   const [isLoading, setIsLoading] = useState(true);
+  const [isImage, setIsImage] = useState(true);
+
+  // Check if attachment is likely a PDF based on URL
+  const isPDF = attachment.toLowerCase().includes('.pdf') || attachment.toLowerCase().includes('pdf');
 
   // Normalize URL on mount
   useEffect(() => {
@@ -1489,6 +1493,19 @@ function AttachmentImage({
       <div className="w-full h-24 bg-gray-100 rounded-lg border flex items-center justify-center">
         {isLoading ? (
           <div className="text-sm text-gray-500">Loading...</div>
+        ) : isPDF ? (
+          <div 
+            className="flex flex-col items-center justify-center text-red-600 cursor-pointer hover:bg-gray-200 w-full h-full rounded-lg transition-colors"
+            onClick={() => window.open(imageUrl, '_blank')}
+          >
+            <div className="w-12 h-12 mb-1 flex items-center justify-center bg-red-100 rounded-lg">
+              <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24">
+                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                <path d="M14.5,16.5V15H16V13.5H14.5V12H13V13.5H11.5V15H13V16.5H14.5Z" fill="white"/>
+              </svg>
+            </div>
+            <span className="text-xs font-medium">PDF</span>
+          </div>
         ) : (
           <img 
             src={imageUrl} 
@@ -1497,12 +1514,13 @@ function AttachmentImage({
             onClick={() => window.open(imageUrl, '_blank')}
             onError={() => {
               console.error('Failed to load image:', imageUrl);
+              setIsImage(false);
             }}
           />
         )}
       </div>
       <div className="text-xs text-gray-500 mt-1 truncate">
-        Photo {index + 1}
+        {isPDF ? `PDF ${index + 1}` : `Photo ${index + 1}`}
       </div>
     </div>
   );
