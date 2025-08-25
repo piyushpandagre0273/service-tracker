@@ -320,16 +320,23 @@ export default function Home() {
 
   // File upload function
   const uploadFiles = async (files: File[]): Promise<string[]> => {
-    const uploadPromises = files.map(async (file) => {
+    console.log('uploadFiles called with files:', files.map(f => ({name: f.name, size: f.size, type: f.type})));
+    
+    const uploadPromises = files.map(async (file, index) => {
       try {
+        console.log(`[File ${index + 1}] Starting upload for: ${file.name}`);
+        
         // Get upload URL
+        console.log(`[File ${index + 1}] Getting upload URL...`);
         const response = await apiRequest("POST", "/api/objects/upload");
         if (!response.ok) {
-          throw new Error(`Failed to get upload URL: ${response.status}`);
+          throw new Error(`Failed to get upload URL: ${response.status} - ${response.statusText}`);
         }
         const { uploadURL } = await response.json();
+        console.log(`[File ${index + 1}] Got upload URL:`, uploadURL.substring(0, 100) + '...');
         
         // Upload file to the presigned URL
+        console.log(`[File ${index + 1}] Uploading file to Google Cloud...`);
         const uploadResponse = await fetch(uploadURL, {
           method: 'PUT',
           body: file,
@@ -339,11 +346,14 @@ export default function Home() {
         });
         
         if (!uploadResponse.ok) {
-          throw new Error(`Failed to upload file: ${uploadResponse.status}`);
+          const errorText = await uploadResponse.text();
+          throw new Error(`Failed to upload file: ${uploadResponse.status} - ${errorText}`);
         }
+        console.log(`[File ${index + 1}] File uploaded successfully to Google Cloud`);
         
         // Convert Google Cloud URL to local object path that our backend can serve
         if (uploadURL.includes('storage.googleapis.com')) {
+          console.log(`[File ${index + 1}] Normalizing path...`);
           // Call backend to normalize the path properly
           const normalizeResponse = await fetch('/api/normalize-path', {
             method: 'POST',
@@ -353,19 +363,24 @@ export default function Home() {
           
           if (normalizeResponse.ok) {
             const { normalizedPath } = await normalizeResponse.json();
+            console.log(`[File ${index + 1}] Path normalized:`, normalizedPath);
             return normalizedPath;
           } else {
-            console.error('Failed to normalize path, using original URL');
+            const errorText = await normalizeResponse.text();
+            console.error(`[File ${index + 1}] Failed to normalize path:`, errorText);
+            console.log(`[File ${index + 1}] Using original URL`);
           }
         }
         return uploadURL;
       } catch (error) {
-        console.error(`Error uploading file ${file.name}:`, error);
-        throw error;
+        console.error(`[File ${index + 1}] Error uploading file ${file.name}:`, error);
+        throw new Error(`Upload failed for ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     });
     
-    return Promise.all(uploadPromises);
+    const results = await Promise.all(uploadPromises);
+    console.log('All uploads completed successfully:', results);
+    return results;
   };
 
   const onSubmit = async (data: CreateRequestForm) => {
@@ -374,7 +389,9 @@ export default function Home() {
       
       // Upload files if any selected
       if (selectedFiles.length > 0) {
+        console.log(`Starting upload of ${selectedFiles.length} files:`, selectedFiles.map(f => f.name));
         attachments = await uploadFiles(selectedFiles);
+        console.log('Upload completed successfully:', attachments);
       }
       
       // Create request with attachments
@@ -386,9 +403,10 @@ export default function Home() {
       // Clear selected files after submission
       setSelectedFiles([]);
     } catch (error) {
+      console.error('Error in onSubmit:', error);
       toast({
         title: "Error",
-        description: "Failed to upload files",
+        description: `Failed to upload files: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     }
