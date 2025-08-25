@@ -364,16 +364,12 @@ export default function Home() {
     // Upload files sequentially to avoid overwhelming the system
     for (const file of files) {
       try {
-        console.log(`Starting upload for file: ${file.name} (${file.size} bytes, ${file.type})`);
         
         // Step 1: Get upload URL from our backend
-        console.log('Step 1: Getting upload URL from backend...');
         const response = await apiRequest('POST', '/api/objects/upload', {});
         const { uploadURL } = await response.json();
-        console.log('Step 1 complete: Got upload URL from backend');
         
         // Step 2: Upload file directly to Google Cloud Storage
-        console.log('Step 2: Uploading file to Google Cloud Storage...');
         const uploadResponse = await fetch(uploadURL, {
           method: 'PUT',
           body: file,
@@ -386,18 +382,14 @@ export default function Home() {
           const errorText = await uploadResponse.text().catch(() => uploadResponse.statusText);
           throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
         }
-        console.log('Step 2 complete: Google Cloud upload response received');
         
         // Step 3: Extract the base URL without query parameters to get the actual object URL
-        console.log('Step 3: Normalizing path...');
         const objectURL = uploadURL.split('?')[0];
         
         // Normalize the path for our backend to serve
         const normalizeResponse = await apiRequest('POST', '/api/normalize-path', { url: objectURL });
         const { normalizedPath } = await normalizeResponse.json();
-        console.log('Step 3 complete: Path normalization response received');
         
-        console.log(`Upload complete for ${file.name}: ${normalizedPath}`);
         results.push({
           path: normalizedPath,
           metadata: {
@@ -415,13 +407,9 @@ export default function Home() {
   };
 
   const onSubmit = async (data: CreateRequestForm) => {
-    console.log('Form submission started with data:', data);
-    console.log('Selected files:', selectedFiles);
-    console.log('Form state errors:', form.formState.errors);
     
     // Prevent multiple simultaneous submissions
     if (createRequestMutation.isPending) {
-      console.log('Submission already in progress, ignoring...');
       return;
     }
 
@@ -431,7 +419,6 @@ export default function Home() {
       
       // Upload files if any selected
       if (selectedFiles.length > 0) {
-        console.log(`Starting upload of ${selectedFiles.length} files:`, selectedFiles.map(f => f.name));
         
         toast({
           title: "Uploading files...",
@@ -439,7 +426,6 @@ export default function Home() {
         });
         
         const uploadResults = await uploadFiles(selectedFiles);
-        console.log('Upload completed successfully:', uploadResults);
         
         attachments = uploadResults.map(result => result.path);
         attachmentMetadata = uploadResults.map(result => JSON.stringify({
@@ -450,7 +436,6 @@ export default function Home() {
       }
       
       // Create request with attachments
-      console.log('Creating request with data:', { ...data, attachments, attachmentMetadata });
       createRequestMutation.mutate({
         ...data,
         attachments,
@@ -537,7 +522,6 @@ export default function Home() {
 
   const handleUploadComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     // This would typically be used to update the current form or request with the uploaded file
-    console.log("Upload complete:", result);
     if (result.successful && result.successful.length > 0) {
       const uploadURL = result.successful[0].uploadURL;
       toast({
