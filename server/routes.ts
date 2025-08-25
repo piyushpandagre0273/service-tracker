@@ -131,7 +131,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // File upload endpoints
   app.post("/api/objects/upload", async (req, res) => {
     try {
+      // Add CORS headers
+      res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type');
+      
       console.log("Upload URL request received from:", req.ip);
+      console.log("Request headers:", req.headers);
+      console.log("Request body:", req.body);
+      
       const objectStorageService = new ObjectStorageService();
       console.log("Creating ObjectStorageService...");
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();

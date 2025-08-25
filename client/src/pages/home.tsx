@@ -328,9 +328,19 @@ export default function Home() {
         
         // Get upload URL
         console.log(`[File ${index + 1}] Getting upload URL...`);
-        const response = await apiRequest("POST", "/api/objects/upload");
+        const response = await fetch('/api/objects/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        });
+        
+        console.log(`[File ${index + 1}] Upload URL response status:`, response.status);
         if (!response.ok) {
-          throw new Error(`Failed to get upload URL: ${response.status} - ${response.statusText}`);
+          const errorText = await response.text();
+          console.error(`[File ${index + 1}] Upload URL error response:`, errorText);
+          throw new Error(`Failed to get upload URL: ${response.status} - ${errorText}`);
         }
         const { uploadURL } = await response.json();
         console.log(`[File ${index + 1}] Got upload URL:`, uploadURL.substring(0, 100) + '...');
