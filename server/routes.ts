@@ -131,12 +131,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // File upload endpoints
   app.post("/api/objects/upload", async (req, res) => {
     try {
+      console.log("Upload URL request received from:", req.ip);
       const objectStorageService = new ObjectStorageService();
+      console.log("Creating ObjectStorageService...");
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      console.log("Upload URL generated successfully:", uploadURL.substring(0, 100) + "...");
       res.json({ uploadURL });
     } catch (error) {
       console.error("Error getting upload URL:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error("Error details:", {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined
+      });
+      res.status(500).json({ 
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

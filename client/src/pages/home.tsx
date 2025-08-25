@@ -384,12 +384,24 @@ export default function Home() {
   };
 
   const onSubmit = async (data: CreateRequestForm) => {
+    // Prevent multiple simultaneous submissions
+    if (createRequestMutation.isPending) {
+      console.log('Submission already in progress, ignoring...');
+      return;
+    }
+
     try {
       let attachments: string[] = [];
       
       // Upload files if any selected
       if (selectedFiles.length > 0) {
         console.log(`Starting upload of ${selectedFiles.length} files:`, selectedFiles.map(f => f.name));
+        
+        toast({
+          title: "Uploading files...",
+          description: `Uploading ${selectedFiles.length} file(s), please wait...`,
+        });
+        
         attachments = await uploadFiles(selectedFiles);
         console.log('Upload completed successfully:', attachments);
       }
@@ -405,7 +417,7 @@ export default function Home() {
     } catch (error) {
       console.error('Error in onSubmit:', error);
       toast({
-        title: "Error",
+        title: "Upload Failed",
         description: `Failed to upload files: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
