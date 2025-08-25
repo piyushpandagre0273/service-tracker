@@ -182,18 +182,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Normalize object storage path
-  app.post("/api/normalize-path", async (req, res) => {
-    try {
-      const { url } = req.body;
-      const objectStorageService = new ObjectStorageService();
-      const normalizedPath = objectStorageService.normalizeObjectEntityPath(url);
-      res.json({ normalizedPath });
-    } catch (error) {
-      console.error("Error normalizing path:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
 
   // Add attachments to existing service request
   app.post("/api/service-requests/:id/attachments", async (req, res) => {
@@ -255,17 +243,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve uploaded files
-  app.get("/objects/:objectPath(*)", async (req, res) => {
-    try {
-      const objectStorageService = new ObjectStorageService();
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      objectStorageService.downloadObject(objectFile, res);
-    } catch (error) {
-      console.error("Error serving file:", error);
-      res.status(404).json({ error: "File not found" });
-    }
-  });
 
   const httpServer = createServer(app);
 
