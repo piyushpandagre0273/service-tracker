@@ -348,11 +348,26 @@ export default function Home() {
     // Upload files sequentially to avoid overwhelming the system
     for (const file of files) {
       try {
+        console.log(`Starting upload for file: ${file.name} (${file.size} bytes, ${file.type})`);
+        
         // Get upload URL from our backend
+        console.log('Step 1: Getting upload URL from backend...');
         const response = await apiRequest('POST', '/api/objects/upload', {});
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Failed to get response' }));
+          console.error('Backend upload URL request failed:', {
+            status: response.status,
+            error: errorData
+          });
+          throw new Error(`Backend error: ${response.status} - ${JSON.stringify(errorData)}`);
+        }
+        
         const { uploadURL } = await response.json();
+        console.log('Step 1 complete: Got upload URL from backend');
         
         // Upload file directly to Google Cloud Storage
+        console.log('Step 2: Uploading file to Google Cloud Storage...');
         const uploadResponse = await fetch(uploadURL, {
           method: 'PUT',
           body: file,
@@ -360,24 +375,46 @@ export default function Home() {
             'Content-Type': file.type || 'application/octet-stream',
           },
         });
+        console.log('Step 2 complete: Google Cloud upload response received');
         
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text().catch(() => uploadResponse.statusText);
           console.error('Google Cloud upload failed:', {
             status: uploadResponse.status,
             statusText: uploadResponse.statusText,
-            error: errorText
+            error: errorText,
+            url: uploadURL
           });
-          throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
+          throw new Error(`Google Cloud upload failed: ${uploadResponse.status} - ${errorText}`);
         }
         
         // Normalize the path for our backend to serve
+        console.log('Step 3: Normalizing path...');
         const normalizeResponse = await apiRequest('POST', '/api/normalize-path', { url: uploadURL });
+        console.log('Step 3 complete: Path normalization response received');
+        
+        if (!normalizeResponse.ok) {
+          const errorData = await normalizeResponse.json().catch(() => ({ error: 'Unknown normalization error' }));
+          console.error('Path normalization failed:', {
+            status: normalizeResponse.status,
+            error: errorData
+          });
+          throw new Error(`Path normalization failed: ${normalizeResponse.status} - ${JSON.stringify(errorData)}`);
+        }
+        
         const { normalizedPath } = await normalizeResponse.json();
+        console.log(`Upload complete for ${file.name}: ${normalizedPath}`);
         
         results.push(normalizedPath);
       } catch (error) {
         console.error(`Error uploading file ${file.name}:`, error);
+        console.error('Full error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type
+        });
         throw new Error(`Upload failed for ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
