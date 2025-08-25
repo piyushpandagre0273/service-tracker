@@ -12,6 +12,7 @@ export const serviceRequests = pgTable("service_requests", {
   issueDescription: text("issue_description").notNull(),
   status: text("status").notNull().default("new"), // new, inspection, service, received, completed
   attachments: text("attachments").array().default([]),
+  attachmentMetadata: text("attachment_metadata").array().default([]), // JSON strings containing {path, filename, mimeType}
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });

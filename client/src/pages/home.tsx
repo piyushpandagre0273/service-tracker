@@ -92,6 +92,24 @@ export default function Home() {
     
     return url;
   };
+
+  // Helper function to get attachment metadata
+  const getAttachmentMetadata = (request: ServiceRequest, attachmentPath: string): { filename: string; mimeType: string } | undefined => {
+    if (!request.attachmentMetadata) return undefined;
+    
+    try {
+      const metadataIndex = request.attachments?.indexOf(attachmentPath);
+      if (metadataIndex === undefined || metadataIndex === -1) return undefined;
+      
+      const metadataString = request.attachmentMetadata[metadataIndex];
+      if (!metadataString) return undefined;
+      
+      return JSON.parse(metadataString);
+    } catch (error) {
+      console.error('Error parsing attachment metadata:', error);
+      return undefined;
+    }
+  };
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -340,8 +358,8 @@ export default function Home() {
   };
 
   // File upload function
-  const uploadFiles = async (files: File[]): Promise<string[]> => {
-    const results: string[] = [];
+  const uploadFiles = async (files: File[]): Promise<{path: string, metadata: {filename: string, mimeType: string}}[]> => {
+    const results: {path: string, metadata: {filename: string, mimeType: string}}[] = [];
     
     // Upload files sequentially to avoid overwhelming the system
     for (const file of files) {
@@ -380,7 +398,13 @@ export default function Home() {
         console.log('Step 3 complete: Path normalization response received');
         
         console.log(`Upload complete for ${file.name}: ${normalizedPath}`);
-        results.push(normalizedPath);
+        results.push({
+          path: normalizedPath,
+          metadata: {
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream'
+          }
+        });
       } catch (error) {
         console.error(`Error uploading file ${file.name}:`, error);
         throw new Error(`Upload failed for ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -403,6 +427,7 @@ export default function Home() {
 
     try {
       let attachments: string[] = [];
+      let attachmentMetadata: string[] = [];
       
       // Upload files if any selected
       if (selectedFiles.length > 0) {
@@ -413,15 +438,23 @@ export default function Home() {
           description: `Uploading ${selectedFiles.length} file(s), please wait...`,
         });
         
-        attachments = await uploadFiles(selectedFiles);
-        console.log('Upload completed successfully:', attachments);
+        const uploadResults = await uploadFiles(selectedFiles);
+        console.log('Upload completed successfully:', uploadResults);
+        
+        attachments = uploadResults.map(result => result.path);
+        attachmentMetadata = uploadResults.map(result => JSON.stringify({
+          path: result.path,
+          filename: result.metadata.filename,
+          mimeType: result.metadata.mimeType
+        }));
       }
       
       // Create request with attachments
-      console.log('Creating request with data:', { ...data, attachments });
+      console.log('Creating request with data:', { ...data, attachments, attachmentMetadata });
       createRequestMutation.mutate({
         ...data,
-        attachments
+        attachments,
+        attachmentMetadata
       });
       
       // Clear selected files after submission
@@ -974,6 +1007,7 @@ export default function Home() {
                                     attachment={attachment} 
                                     index={index} 
                                     normalizeUrl={normalizeAttachmentUrl}
+                                    metadata={getAttachmentMetadata(request, attachment)}
                                   />
                                 ))}
                               </div>
@@ -999,7 +1033,8 @@ export default function Home() {
                                     if (files && files.length > 0) {
                                       const fileArray = Array.from(files);
                                       try {
-                                        const attachments = await uploadFiles(fileArray);
+                                        const uploadResults = await uploadFiles(fileArray);
+                                        const attachments = uploadResults.map(result => result.path);
                                         addAttachmentsMutation.mutate({ requestId: request.id, attachments });
                                       } catch (error) {
                                         toast({
@@ -1076,7 +1111,8 @@ export default function Home() {
                                   if (files && files.length > 0) {
                                     const fileArray = Array.from(files);
                                     try {
-                                      const newAttachments = await uploadFiles(fileArray);
+                                      const uploadResults = await uploadFiles(fileArray);
+                                      const newAttachments = uploadResults.map(result => result.path);
                                       setCommentAttachments(prev => ({
                                         ...prev,
                                         [request.id]: [...(prev[request.id] || []), ...newAttachments]
@@ -1223,6 +1259,7 @@ export default function Home() {
                                     attachment={attachment} 
                                     index={index} 
                                     normalizeUrl={normalizeAttachmentUrl}
+                                    metadata={getAttachmentMetadata(request, attachment)}
                                   />
                                 ))}
                               </div>
@@ -1248,7 +1285,8 @@ export default function Home() {
                                     if (files && files.length > 0) {
                                       const fileArray = Array.from(files);
                                       try {
-                                        const attachments = await uploadFiles(fileArray);
+                                        const uploadResults = await uploadFiles(fileArray);
+                                        const attachments = uploadResults.map(result => result.path);
                                         addAttachmentsMutation.mutate({ requestId: request.id, attachments });
                                       } catch (error) {
                                         toast({
@@ -1467,11 +1505,13 @@ function CommentsSection({
 function AttachmentImage({ 
   attachment, 
   index, 
-  normalizeUrl 
+  normalizeUrl,
+  metadata
 }: { 
   attachment: string; 
   index: number; 
   normalizeUrl: (url: string) => Promise<string>;
+  metadata?: { filename: string; mimeType: string };
 }) {
   const [imageUrl, setImageUrl] = useState(attachment);
   const [isLoading, setIsLoading] = useState(true);
@@ -1485,19 +1525,36 @@ function AttachmentImage({
       setImageUrl(url);
       setIsLoading(false);
       
-      // Try to detect file type from the original attachment path
-      if (attachment.toLowerCase().includes('pdf')) {
-        setFileType('pdf');
-        setIsImage(false);
-      } else if (attachment.toLowerCase().includes('mp4') || 
-                 attachment.toLowerCase().includes('video') ||
-                 attachment.toLowerCase().includes('mov') ||
-                 attachment.toLowerCase().includes('avi')) {
-        setFileType('video');
-        setIsImage(false);
+      // Use metadata if available for accurate file type detection
+      if (metadata) {
+        if (metadata.mimeType.startsWith('image/')) {
+          setFileType('image');
+          setIsImage(true);
+        } else if (metadata.mimeType === 'application/pdf') {
+          setFileType('pdf');
+          setIsImage(false);
+        } else if (metadata.mimeType.startsWith('video/')) {
+          setFileType('video');
+          setIsImage(false);
+        } else {
+          setFileType('other');
+          setIsImage(false);
+        }
+      } else {
+        // Fallback to filename/URL-based detection if no metadata
+        if (attachment.toLowerCase().includes('pdf')) {
+          setFileType('pdf');
+          setIsImage(false);
+        } else if (attachment.toLowerCase().includes('mp4') || 
+                   attachment.toLowerCase().includes('video') ||
+                   attachment.toLowerCase().includes('mov') ||
+                   attachment.toLowerCase().includes('avi')) {
+          setFileType('video');
+          setIsImage(false);
+        }
       }
     });
-  }, [attachment]);
+  }, [attachment, metadata]);
 
   // Handle image load failure to detect non-image files
   const handleImageError = () => {
@@ -1505,9 +1562,17 @@ function AttachmentImage({
     setIsImage(false);
     setImageLoadFailed(true);
     
-    // If we haven't already detected the file type, try to guess
-    if (fileType === 'image') {
-      // Check for common file patterns in the URL
+    // If we have metadata, use it for file type detection
+    if (metadata) {
+      if (metadata.mimeType === 'application/pdf') {
+        setFileType('pdf');
+      } else if (metadata.mimeType.startsWith('video/')) {
+        setFileType('video');
+      } else {
+        setFileType('pdf'); // Default fallback
+      }
+    } else if (fileType === 'image') {
+      // Fallback detection if no metadata
       if (attachment.toLowerCase().includes('pdf')) {
         setFileType('pdf');
       } else if (attachment.toLowerCase().includes('mp4') || 
@@ -1516,7 +1581,6 @@ function AttachmentImage({
                  attachment.toLowerCase().includes('avi')) {
         setFileType('video');
       } else {
-        // Default to PDF for other non-image files
         setFileType('pdf');
       }
     }
