@@ -343,7 +343,10 @@ export default function Home() {
 
   // File upload function
   const uploadFiles = async (files: File[]): Promise<string[]> => {
-    const uploadPromises = files.map(async (file, index) => {
+    const results: string[] = [];
+    
+    // Upload files sequentially to avoid overwhelming the system
+    for (const file of files) {
       try {
         // Get upload URL from our backend
         const response = await apiRequest('POST', '/api/objects/upload', {});
@@ -353,24 +356,33 @@ export default function Home() {
         const uploadResponse = await fetch(uploadURL, {
           method: 'PUT',
           body: file,
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+          },
         });
         
         if (!uploadResponse.ok) {
-          throw new Error(`Upload failed: ${uploadResponse.status}`);
+          const errorText = await uploadResponse.text().catch(() => uploadResponse.statusText);
+          console.error('Google Cloud upload failed:', {
+            status: uploadResponse.status,
+            statusText: uploadResponse.statusText,
+            error: errorText
+          });
+          throw new Error(`Upload failed: ${uploadResponse.status} - ${errorText}`);
         }
         
         // Normalize the path for our backend to serve
         const normalizeResponse = await apiRequest('POST', '/api/normalize-path', { url: uploadURL });
         const { normalizedPath } = await normalizeResponse.json();
         
-        return normalizedPath;
+        results.push(normalizedPath);
       } catch (error) {
         console.error(`Error uploading file ${file.name}:`, error);
         throw new Error(`Upload failed for ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-    });
+    }
     
-    return await Promise.all(uploadPromises);
+    return results;
   };
 
   const onSubmit = async (data: CreateRequestForm) => {

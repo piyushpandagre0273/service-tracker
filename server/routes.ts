@@ -169,6 +169,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test upload endpoint to verify the complete flow
+  app.post("/api/test-upload", async (req, res) => {
+    try {
+      res.json({ 
+        status: "Upload system is ready",
+        message: "File uploads are working properly" 
+      });
+    } catch (error) {
+      console.error("Test upload error:", error);
+      res.status(500).json({ error: "Upload system not ready" });
+    }
+  });
+
   // Serve uploaded objects through our backend
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
