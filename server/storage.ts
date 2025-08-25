@@ -10,6 +10,7 @@ export interface IStorage {
   getCompletedServiceRequests(): Promise<ServiceRequest[]>;
   createServiceRequest(serviceRequest: InsertServiceRequest): Promise<ServiceRequest>;
   updateServiceRequest(id: string, updates: Partial<ServiceRequest>): Promise<ServiceRequest | undefined>;
+  deleteServiceRequest(id: string): Promise<void>;
   searchServiceRequests(query: string): Promise<ServiceRequest[]>;
   
   // Comments
@@ -67,6 +68,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(serviceRequests.id, id))
       .returning();
     return result;
+  }
+
+  async deleteServiceRequest(id: string): Promise<void> {
+    // Delete the service request
+    await db.delete(serviceRequests).where(eq(serviceRequests.id, id));
+    
+    // Delete associated comments
+    await db.delete(comments).where(eq(comments.serviceRequestId, id));
   }
 
   async searchServiceRequests(query: string): Promise<ServiceRequest[]> {

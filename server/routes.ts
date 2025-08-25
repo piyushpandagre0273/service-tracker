@@ -86,6 +86,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete service request
+  app.delete("/api/service-requests/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteServiceRequest(id);
+      res.json({ message: "Service request deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting service request:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get comments for a service request
   app.get("/api/service-requests/:id/comments", async (req, res) => {
     try {

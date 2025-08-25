@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Bell, Edit, MessageSquare, Mic, ChevronDown, ChevronUp, Send, Camera, Paperclip, X } from "lucide-react";
+import { Search, Bell, Edit, MessageSquare, Mic, ChevronDown, ChevronUp, Send, Camera, Paperclip, X, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ServiceRequest, Comment } from "@shared/schema";
@@ -180,6 +180,29 @@ export default function Home() {
     },
   });
 
+  const deleteRequestMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/service-requests/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/service-requests/completed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/metrics"] });
+      toast({
+        title: "Success",
+        description: "Service request deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete service request",
+        variant: "destructive",
+      });
+    },
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const response = await apiRequest("PATCH", `/api/service-requests/${id}`, { status });
@@ -332,8 +355,7 @@ export default function Home() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({})
+          }
         });
         
         console.log(`[File ${index + 1}] Upload URL response status:`, response.status);
@@ -874,6 +896,22 @@ export default function Home() {
                               <Edit className="h-4 w-4 mr-1" />
                               Edit
                             </Button>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm('Are you sure you want to delete this service request?')) {
+                                  deleteRequestMutation.mutate(request.id);
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              disabled={deleteRequestMutation.isPending}
+                              data-testid={`button-delete-${request.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
                             <CommentsButton 
                               requestId={request.id} 
                               isExpanded={expandedComments[request.id]} 
@@ -1124,6 +1162,22 @@ export default function Home() {
                           >
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
+                          </Button>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this service request?')) {
+                                deleteRequestMutation.mutate(request.id);
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            disabled={deleteRequestMutation.isPending}
+                            data-testid={`button-delete-completed-${request.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Delete
                           </Button>
                           <CommentsButton 
                             requestId={request.id} 
