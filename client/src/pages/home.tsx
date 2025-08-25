@@ -393,6 +393,10 @@ export default function Home() {
   };
 
   const onSubmit = async (data: CreateRequestForm) => {
+    console.log('Form submission started with data:', data);
+    console.log('Selected files:', selectedFiles);
+    console.log('Form state errors:', form.formState.errors);
+    
     // Prevent multiple simultaneous submissions
     if (createRequestMutation.isPending) {
       console.log('Submission already in progress, ignoring...');
@@ -416,6 +420,7 @@ export default function Home() {
       }
       
       // Create request with attachments
+      console.log('Creating request with data:', { ...data, attachments });
       createRequestMutation.mutate({
         ...data,
         attachments
