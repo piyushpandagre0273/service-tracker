@@ -18,6 +18,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ServiceRequest, Comment } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
+import { ObjectUploader } from "@/components/ObjectUploader";
 
 const createRequestSchema = z.object({
   productName: z.string().min(1, "Product name is required"),
@@ -63,6 +64,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [commentAttachments, setCommentAttachments] = useState<Record<string, string[]>>({});
   const [pendingUploads, setPendingUploads] = useState<Record<string, string>>({});
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [editingRequest, setEditingRequest] = useState<ServiceRequest | null>(null);
@@ -203,12 +205,13 @@ export default function Home() {
   });
 
   const addCommentMutation = useMutation({
-    mutationFn: async ({ requestId, text }: { requestId: string; text: string }) => {
-      const response = await apiRequest("POST", `/api/service-requests/${requestId}/comments`, { text });
+    mutationFn: async ({ requestId, text, attachments }: { requestId: string; text: string; attachments?: string[] }) => {
+      const response = await apiRequest("POST", `/api/service-requests/${requestId}/comments`, { text, attachments: attachments || [] });
       return response.json();
     },
     onSuccess: (_, variables) => {
       setCommentInputs(prev => ({ ...prev, [variables.requestId]: "" }));
+      setCommentAttachments(prev => ({ ...prev, [variables.requestId]: [] }));
       queryClient.invalidateQueries({ queryKey: ["/api/service-requests/active"] });
       queryClient.invalidateQueries({ queryKey: ["/api/service-requests/completed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/service-requests", variables.requestId, "comments"] });
@@ -308,7 +311,8 @@ export default function Home() {
   const handleAddComment = (requestId: string) => {
     const text = commentInputs[requestId];
     if (!text?.trim()) return;
-    addCommentMutation.mutate({ requestId, text });
+    const attachments = commentAttachments[requestId] || [];
+    addCommentMutation.mutate({ requestId, text, attachments });
   };
 
   const handleClearSearch = () => {
@@ -921,10 +925,33 @@ export default function Home() {
 
                         {/* Comments Section */}
                         {expandedComments[request.id] && (
-                          <CommentsSection requestId={request.id} />
+                          <CommentsSection 
+                            requestId={request.id} 
+                            normalizeAttachmentUrl={normalizeAttachmentUrl}
+                          />
                         )}
                         
                         <div className="bg-gray-50 rounded-lg p-4">
+                          {/* Comment Attachments Preview */}
+                          {commentAttachments[request.id] && commentAttachments[request.id].length > 0 && (
+                            <div className="mb-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Paperclip className="h-4 w-4 text-gray-500" />
+                                <span className="text-sm text-gray-700">Attached images:</span>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2">
+                                {commentAttachments[request.id].map((attachment, index) => (
+                                  <AttachmentImage
+                                    key={index}
+                                    attachment={attachment}
+                                    index={index}
+                                    normalizeUrl={normalizeAttachmentUrl}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="flex items-center space-x-2">
                             <Input
                               type="text"
@@ -934,6 +961,52 @@ export default function Home() {
                               className="flex-1"
                               data-testid={`input-comment-${request.id}`}
                             />
+                            
+                            {/* Attach Image Button */}
+                            <ObjectUploader
+                              maxNumberOfFiles={5}
+                              maxFileSize={10485760} // 10MB
+                              onGetUploadParameters={async () => {
+                                const response = await apiRequest("POST", "/api/objects/upload");
+                                const { uploadURL } = await response.json();
+                                return { method: "PUT", url: uploadURL };
+                              }}
+                              onComplete={async (result) => {
+                                if (result.successful && result.successful.length > 0) {
+                                  const newAttachments = await Promise.all(
+                                    result.successful.map(async (file) => {
+                                      const uploadURL = file.uploadURL as string;
+                                      // Normalize the URL
+                                      const response = await fetch('/api/normalize-path', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ url: uploadURL })
+                                      });
+                                      
+                                      if (response.ok) {
+                                        const { normalizedPath } = await response.json();
+                                        return normalizedPath;
+                                      }
+                                      return uploadURL;
+                                    })
+                                  );
+                                  
+                                  setCommentAttachments(prev => ({
+                                    ...prev,
+                                    [request.id]: [...(prev[request.id] || []), ...newAttachments]
+                                  }));
+                                  
+                                  toast({
+                                    title: "Success",
+                                    description: `Added ${newAttachments.length} image(s) to comment`,
+                                  });
+                                }
+                              }}
+                              buttonClassName="p-2 hover:bg-gray-100 rounded-lg"
+                            >
+                              <Paperclip className="h-4 w-4 text-gray-600" />
+                            </ObjectUploader>
+                            
                             <Button
                               onClick={() => handleAddComment(request.id)}
                               className="bg-blue-600 hover:bg-blue-700"
@@ -1088,7 +1161,10 @@ export default function Home() {
                         {/* Comments Section for Completed Requests */}
                         {expandedComments[request.id] && (
                           <div className="mt-4">
-                            <CommentsSection requestId={request.id} />
+                            <CommentsSection 
+                              requestId={request.id} 
+                              normalizeAttachmentUrl={normalizeAttachmentUrl}
+                            />
                           </div>
                         )}
                       </div>
@@ -1208,7 +1284,13 @@ export default function Home() {
 }
 
 // Comments Section Component
-function CommentsSection({ requestId }: { requestId: string }) {
+function CommentsSection({ 
+  requestId, 
+  normalizeAttachmentUrl 
+}: { 
+  requestId: string;
+  normalizeAttachmentUrl: (url: string) => Promise<string>;
+}) {
   const { data: comments, isLoading: commentsLoading } = useQuery<Comment[]>({
     queryKey: ["/api/service-requests", requestId, "comments"],
   });
@@ -1238,6 +1320,27 @@ function CommentsSection({ requestId }: { requestId: string }) {
             <div className="text-sm text-gray-900" data-testid={`comment-text-${comment.id}`}>
               {comment.text}
             </div>
+            
+            {/* Comment Attachments */}
+            {comment.attachments && comment.attachments.length > 0 && (
+              <div className="mt-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Paperclip className="h-3 w-3 text-gray-500" />
+                  <span className="text-xs text-gray-600">Attached images ({comment.attachments.length}):</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {comment.attachments.map((attachment, index) => (
+                    <AttachmentImage
+                      key={index}
+                      attachment={attachment}
+                      index={index}
+                      normalizeUrl={normalizeAttachmentUrl}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div className="text-xs text-gray-500 mt-1" data-testid={`comment-date-${comment.id}`}>
               Posted: {new Date(comment.createdAt).toLocaleString()}
             </div>
