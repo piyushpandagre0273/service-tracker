@@ -18,7 +18,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ServiceRequest, Comment } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
-import { ObjectUploader } from "@/components/ObjectUploader";
 
 const createRequestSchema = z.object({
   productName: z.string().min(1, "Product name is required"),
@@ -322,34 +321,48 @@ export default function Home() {
   // File upload function
   const uploadFiles = async (files: File[]): Promise<string[]> => {
     const uploadPromises = files.map(async (file) => {
-      // Get upload URL
-      const response = await apiRequest("POST", "/api/objects/upload");
-      const { uploadURL } = await response.json();
-      
-      // Upload file to the presigned URL
-      await fetch(uploadURL, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type
+      try {
+        // Get upload URL
+        const response = await apiRequest("POST", "/api/objects/upload");
+        if (!response.ok) {
+          throw new Error(`Failed to get upload URL: ${response.status}`);
         }
-      });
-      
-      // Convert Google Cloud URL to local object path that our backend can serve
-      if (uploadURL.includes('storage.googleapis.com')) {
-        // Call backend to normalize the path properly
-        const response = await fetch('/api/normalize-path', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: uploadURL })
+        const { uploadURL } = await response.json();
+        
+        // Upload file to the presigned URL
+        const uploadResponse = await fetch(uploadURL, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type
+          }
         });
         
-        if (response.ok) {
-          const { normalizedPath } = await response.json();
-          return normalizedPath;
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to upload file: ${uploadResponse.status}`);
         }
+        
+        // Convert Google Cloud URL to local object path that our backend can serve
+        if (uploadURL.includes('storage.googleapis.com')) {
+          // Call backend to normalize the path properly
+          const normalizeResponse = await fetch('/api/normalize-path', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: uploadURL })
+          });
+          
+          if (normalizeResponse.ok) {
+            const { normalizedPath } = await normalizeResponse.json();
+            return normalizedPath;
+          } else {
+            console.error('Failed to normalize path, using original URL');
+          }
+        }
+        return uploadURL;
+      } catch (error) {
+        console.error(`Error uploading file ${file.name}:`, error);
+        throw error;
       }
-      return uploadURL;
     });
     
     return Promise.all(uploadPromises);
@@ -963,49 +976,47 @@ export default function Home() {
                             />
                             
                             {/* Attach Image Button */}
-                            <ObjectUploader
-                              maxNumberOfFiles={5}
-                              maxFileSize={10485760} // 10MB
-                              onGetUploadParameters={async () => {
-                                const response = await apiRequest("POST", "/api/objects/upload");
-                                const { uploadURL } = await response.json();
-                                return { method: "PUT", url: uploadURL };
-                              }}
-                              onComplete={async (result) => {
-                                if (result.successful && result.successful.length > 0) {
-                                  const newAttachments = await Promise.all(
-                                    result.successful.map(async (file) => {
-                                      const uploadURL = file.uploadURL as string;
-                                      // Normalize the URL
-                                      const response = await fetch('/api/normalize-path', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ url: uploadURL })
-                                      });
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="p-2 hover:bg-gray-100 rounded-lg"
+                              onClick={async () => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.multiple = true;
+                                input.onchange = async (e) => {
+                                  const files = (e.target as HTMLInputElement).files;
+                                  if (files && files.length > 0) {
+                                    const fileArray = Array.from(files);
+                                    try {
+                                      const newAttachments = await uploadFiles(fileArray);
+                                      setCommentAttachments(prev => ({
+                                        ...prev,
+                                        [request.id]: [...(prev[request.id] || []), ...newAttachments]
+                                      }));
                                       
-                                      if (response.ok) {
-                                        const { normalizedPath } = await response.json();
-                                        return normalizedPath;
-                                      }
-                                      return uploadURL;
-                                    })
-                                  );
-                                  
-                                  setCommentAttachments(prev => ({
-                                    ...prev,
-                                    [request.id]: [...(prev[request.id] || []), ...newAttachments]
-                                  }));
-                                  
-                                  toast({
-                                    title: "Success",
-                                    description: `Added ${newAttachments.length} image(s) to comment`,
-                                  });
-                                }
+                                      toast({
+                                        title: "Success",
+                                        description: `Added ${newAttachments.length} image(s) to comment`,
+                                      });
+                                    } catch (error) {
+                                      console.error('Error uploading comment images:', error);
+                                      toast({
+                                        title: "Error",
+                                        description: "Failed to upload images",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }
+                                };
+                                input.click();
                               }}
-                              buttonClassName="p-2 hover:bg-gray-100 rounded-lg"
+                              data-testid={`button-attach-comment-${request.id}`}
                             >
                               <Paperclip className="h-4 w-4 text-gray-600" />
-                            </ObjectUploader>
+                            </Button>
                             
                             <Button
                               onClick={() => handleAddComment(request.id)}
