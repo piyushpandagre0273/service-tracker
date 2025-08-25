@@ -277,23 +277,39 @@ async function signObjectURL({
     method,
     expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
   };
-  const response = await fetch(
-    `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    }
-  );
-  if (!response.ok) {
-    throw new Error(
-      `Failed to sign object URL, errorcode: ${response.status}, ` +
-        `make sure you're running on Replit`
+  
+  console.log(`Requesting signed URL for: ${bucketName}/${objectName} (${method})`);
+  console.log(`Sidecar endpoint: ${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`);
+  
+  try {
+    const response = await fetch(
+      `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      }
     );
-  }
+    
+    console.log(`Sidecar response status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      console.error(`Sidecar error response: ${errorText}`);
+      throw new Error(
+        `Failed to sign object URL, errorcode: ${response.status}, error: ${errorText}, ` +
+          `make sure you're running on Replit`
+      );
+    }
 
-  const { signed_url: signedURL } = await response.json();
-  return signedURL;
+    const responseData = await response.json();
+    console.log(`Signed URL generated successfully`);
+    const { signed_url: signedURL } = responseData;
+    return signedURL;
+  } catch (error) {
+    console.error(`Error in signObjectURL:`, error);
+    throw error;
+  }
 }
