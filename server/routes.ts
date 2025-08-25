@@ -143,35 +143,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // File upload endpoints
   app.post("/api/objects/upload", async (req, res) => {
     try {
-      // Add CORS headers
-      res.header('Access-Control-Allow-Origin', '*');
-      res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Content-Type');
-      
-      console.log("Upload URL request received from:", req.ip);
-      console.log("Request headers:", req.headers);
-      console.log("Request body:", req.body);
-      
       const objectStorageService = new ObjectStorageService();
-      console.log("Creating ObjectStorageService...");
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      console.log("Upload URL generated successfully:", uploadURL.substring(0, 100) + "...");
       res.json({ uploadURL });
     } catch (error) {
       console.error("Error getting upload URL:", error);
-      console.error("Error details:", {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        name: error instanceof Error ? error.name : undefined
-      });
-      res.status(500).json({ 
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
-  // Normalize path endpoint (was missing)
+  // Normalize path endpoint
   app.post("/api/normalize-path", async (req, res) => {
     try {
       const { url } = req.body;

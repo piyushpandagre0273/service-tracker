@@ -343,47 +343,34 @@ export default function Home() {
 
   // File upload function
   const uploadFiles = async (files: File[]): Promise<string[]> => {
-    console.log('uploadFiles called with files:', files.map(f => ({name: f.name, size: f.size, type: f.type})));
-    
     const uploadPromises = files.map(async (file, index) => {
       try {
-        console.log(`[File ${index + 1}] Starting upload for: ${file.name}`);
-        
-        // Get upload URL
-        console.log(`[File ${index + 1}] Getting upload URL...`);
+        // Get upload URL from our backend
         const response = await apiRequest('POST', '/api/objects/upload', {});
-        
-        console.log(`[File ${index + 1}] Upload URL response received successfully`);
         const { uploadURL } = await response.json();
-        console.log(`[File ${index + 1}] Got upload URL:`, uploadURL.substring(0, 100) + '...');
         
-        // Upload file to the presigned URL
-        console.log(`[File ${index + 1}] Uploading file to Google Cloud...`);
+        // Upload file directly to Google Cloud Storage
         const uploadResponse = await fetch(uploadURL, {
           method: 'PUT',
           body: file,
         });
         
-        console.log(`[File ${index + 1}] Google Cloud upload status:`, uploadResponse.status);
         if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error(`[File ${index + 1}] Google Cloud upload error:`, errorText);
-          throw new Error(`Failed to upload file: ${uploadResponse.status} - ${errorText}`);
+          throw new Error(`Upload failed: ${uploadResponse.status}`);
         }
-        console.log(`[File ${index + 1}] File uploaded successfully to Google Cloud`);
         
-        // Return the upload URL as the file path (simplified approach)
-        console.log(`[File ${index + 1}] Upload completed successfully`);
-        return uploadURL;
+        // Normalize the path for our backend to serve
+        const normalizeResponse = await apiRequest('POST', '/api/normalize-path', { url: uploadURL });
+        const { normalizedPath } = await normalizeResponse.json();
+        
+        return normalizedPath;
       } catch (error) {
-        console.error(`[File ${index + 1}] Error uploading file ${file.name}:`, error);
+        console.error(`Error uploading file ${file.name}:`, error);
         throw new Error(`Upload failed for ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     });
     
-    const results = await Promise.all(uploadPromises);
-    console.log('All uploads completed successfully:', results);
-    return results;
+    return await Promise.all(uploadPromises);
   };
 
   const onSubmit = async (data: CreateRequestForm) => {
