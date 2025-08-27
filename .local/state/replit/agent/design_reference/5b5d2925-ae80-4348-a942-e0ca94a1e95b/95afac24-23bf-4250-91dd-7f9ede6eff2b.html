@@ -1,0 +1,508 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Issue Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50 font-inter">
+    <!-- @COMPONENT: AppLayout -->
+    <div class="min-h-screen bg-gray-50">
+        <!-- @COMPONENT: Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <h1 class="text-2xl font-semibold text-gray-900">Service Issue Tracker</h1>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <button class="p-2 text-gray-400 hover:text-gray-500" data-implementation="Notification system">
+                                <i class="fas fa-bell"></i>
+                            </button>
+                        </div>
+                        <div class="relative">
+                            <button class="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" data-implementation="User profile dropdown">
+                                <img class="h-8 w-8 rounded-full" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="User avatar" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <!-- @END_COMPONENT: Header -->
+
+        <!-- @COMPONENT: MainContent -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8">
+                <p class="text-gray-600">Manage and track product service requests efficiently.</p>
+            </div>
+
+            <!-- @COMPONENT: SearchSection -->
+            <div class="mb-8">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Search All Requests</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-1 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-search text-gray-400"></i>
+                            </div>
+                            <input type="text" 
+                                   data-bind="searchQuery"
+                                   data-mock="true"
+                                   placeholder="Enter Customer Contact or Token #" 
+                                   class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                        </div>
+                        <button class="px-4 py-3 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500" 
+                                data-event="click:handleClearSearch">
+                            Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- @END_COMPONENT: SearchSection -->
+
+            <!-- @COMPONENT: TabNavigation -->
+            <!-- @STATE: activeTab:string = 'dashboard' -->
+            <div class="mb-8">
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-8">
+                        <button class="border-blue-500 text-blue-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm" 
+                                data-tab="dashboard" 
+                                data-event="click:setActiveTab">
+                            Dashboard & Active
+                        </button>
+                        <button class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm" 
+                                data-tab="completed" 
+                                data-event="click:setActiveTab">
+                            Completed Installations
+                        </button>
+                    </nav>
+                </div>
+            </div>
+            <!-- @END_COMPONENT: TabNavigation -->
+
+            <!-- @COMPONENT: DashboardTab -->
+            <div data-tab-content="dashboard">
+                <!-- @COMPONENT: MetricsCards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                    <div class="bg-gray-600 rounded-lg p-6 text-white">
+                        <div class="text-3xl font-bold" data-bind="metrics.totalActive" data-mock="true">2</div>
+                        <div class="text-sm font-medium text-gray-200">TOTAL ACTIVE</div>
+                    </div>
+                    <div class="bg-blue-600 rounded-lg p-6 text-white">
+                        <div class="text-3xl font-bold" data-bind="metrics.newComplaints" data-mock="true">1</div>
+                        <div class="text-sm font-medium text-blue-100">NEW COMPLAINT</div>
+                    </div>
+                    <div class="bg-yellow-500 rounded-lg p-6 text-white">
+                        <div class="text-3xl font-bold" data-bind="metrics.underInspection" data-mock="true">1</div>
+                        <div class="text-sm font-medium text-yellow-100">UNDER INSPECTION</div>
+                    </div>
+                    <div class="bg-orange-500 rounded-lg p-6 text-white">
+                        <div class="text-3xl font-bold" data-bind="metrics.sentToService" data-mock="true">0</div>
+                        <div class="text-sm font-medium text-orange-100">SENT TO SERVICE CENTER</div>
+                    </div>
+                    <div class="bg-red-500 rounded-lg p-6 text-white">
+                        <div class="text-3xl font-bold" data-bind="metrics.received" data-mock="true">0</div>
+                        <div class="text-sm font-medium text-red-100">RECEIVED</div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: MetricsCards -->
+
+                <!-- @COMPONENT: CreateRequestForm -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+                    <h3 class="text-lg font-medium text-gray-900 mb-6">Create New Service Request</h3>
+                    <form data-event="submit:handleCreateRequest">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label for="productName" class="block text-sm font-medium text-gray-700 mb-2">Product Name / Model</label>
+                                <input type="text" 
+                                       id="productName" 
+                                       data-bind="form.productName"
+                                       data-mock="true"
+                                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                                       data-validation="required" />
+                            </div>
+                            <div>
+                                <label for="serialNumber" class="block text-sm font-medium text-gray-700 mb-2">Serial Number</label>
+                                <input type="text" 
+                                       id="serialNumber" 
+                                       data-bind="form.serialNumber"
+                                       data-mock="true"
+                                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                                       data-validation="required" />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label for="customerName" class="block text-sm font-medium text-gray-700 mb-2">Customer Name</label>
+                                <input type="text" 
+                                       id="customerName" 
+                                       data-bind="form.customerName"
+                                       data-mock="true"
+                                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                                       data-validation="required" />
+                            </div>
+                            <div>
+                                <label for="customerContact" class="block text-sm font-medium text-gray-700 mb-2">Customer Contact (Phone/Email)</label>
+                                <input type="text" 
+                                       id="customerContact" 
+                                       data-bind="form.customerContact"
+                                       data-mock="true"
+                                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                                       data-validation="required" />
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <label for="issueDescription" class="block text-sm font-medium text-gray-700 mb-2">Detailed description of the issue...</label>
+                            <textarea id="issueDescription" 
+                                      rows="4" 
+                                      data-bind="form.issueDescription"
+                                      data-mock="true"
+                                      class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                                      data-validation="required"></textarea>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
+                            <div class="flex items-center space-x-4">
+                                <div class="flex-1">
+                                    <input type="file" 
+                                           id="attachments" 
+                                           multiple 
+                                           data-bind="form.attachments"
+                                           class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
+                                           data-implementation="File upload handling with proper storage" />
+                                </div>
+                                <button type="button" 
+                                        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" 
+                                        data-event="click:handleRecordAudio">
+                                    <i class="fas fa-microphone mr-2"></i>Record Audio
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <button type="submit" 
+                                    class="px-6 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                    data-implementation="Should validate form before submission">
+                                Submit Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <!-- @END_COMPONENT: CreateRequestForm -->
+
+                <!-- @COMPONENT: ActiveRequestsList -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-6">Active Service Requests</h3>
+                    
+                    <!-- @MAP: activeRequests.map(request => ( -->
+                    <div class="border-b border-gray-200 pb-6 mb-6 last:border-b-0 last:mb-0" data-mock="true">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h4 class="text-lg font-medium text-gray-900" data-bind="request.product" data-mock="true">BMW (SN: MP48ME0652)</h4>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    <span data-bind="request.customer" data-mock="true">Customer: Rishi (8529637412)</span><br>
+                                    <span data-bind="request.issue" data-mock="true">Issue: Complete work</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm text-gray-500" data-bind="request.createdAt" data-mock="true">Created: 8/22/2025, 6:16:43 PM</div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-4">
+                                <button class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                        data-event="click:handleEditRequest">
+                                    <i class="fas fa-edit mr-1"></i>Edit
+                                </button>
+                                <button class="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                        data-event="click:handleViewComments">
+                                    <i class="fas fa-comments mr-1"></i>Comments
+                                </button>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <select class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                                        data-bind="request.status" 
+                                        data-event="change:handleStatusChange">
+                                    <option value="new">New Complaint</option>
+                                    <option value="inspection">Under Inspection</option>
+                                    <option value="service">Sent to Service Center</option>
+                                    <option value="received">Received</option>
+                                </select>
+                                <button class="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                        data-event="click:handleUpdateStatus">
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Comments Section -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="mb-3">
+                                <div class="text-sm text-gray-500 mb-1" data-mock="true">8/22/2025, 6:16:38 PM</div>
+                                <div class="text-sm" data-bind="comment.text" data-mock="true">I want</div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="text" 
+                                       placeholder="Add a comment..." 
+                                       class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                                       data-bind="newComment" />
+                                <button class="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                        data-event="click:handleAddComment">
+                                    Post
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-b border-gray-200 pb-6 mb-6 last:border-b-0 last:mb-0" data-mock="true">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h4 class="text-lg font-medium text-gray-900" data-bind="request.product" data-mock="true">dzzatbaa (SN: thgrg)</h4>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    <span data-bind="request.customer" data-mock="true">Customer: rsth (thrgrg)</span><br>
+                                    <span data-bind="request.issue" data-mock="true">Issue: ethytgtg</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm text-gray-500" data-bind="request.createdAt" data-mock="true">Created: 8/22/2025, 5:14:11 PM</div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-4">
+                                <button class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                        data-event="click:handleEditRequest">
+                                    <i class="fas fa-edit mr-1"></i>Edit
+                                </button>
+                                <button class="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                        data-event="click:handleViewComments">
+                                    <i class="fas fa-comments mr-1"></i>Comments
+                                </button>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <select class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                                        data-bind="request.status" 
+                                        data-event="change:handleStatusChange">
+                                    <option value="new">New Complaint</option>
+                                    <option value="inspection" selected>Under Inspection</option>
+                                    <option value="service">Sent to Service Center</option>
+                                    <option value="received">Received</option>
+                                </select>
+                                <button class="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                        data-event="click:handleUpdateStatus">
+                                    Update
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- @END_MAP )) -->
+                </div>
+                <!-- @END_COMPONENT: ActiveRequestsList -->
+            </div>
+
+            <!-- @COMPONENT: CompletedTab -->
+            <div data-tab-content="completed" class="hidden">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-6">Completed Installations (2)</h3>
+                    
+                    <!-- @MAP: completedRequests.map(request => ( -->
+                    <div class="border-b border-gray-200 pb-6 mb-6 last:border-b-0 last:mb-0" data-mock="true">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h4 class="text-lg font-medium text-gray-900" data-bind="request.product" data-mock="true">XUV (SN: MP48Mc2348)</h4>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    <span data-bind="request.customer" data-mock="true">Customer: ramesh (85296 37412)</span><br>
+                                    <span data-bind="request.issue" data-mock="true">Issue: make it fast</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm text-gray-500" data-bind="request.createdAt" data-mock="true">Created: 8/23/2025, 1:48:37 PM</div>
+                                <div class="mt-2">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Status: Completed
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-4">
+                            <button class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                    data-event="click:handleEditRequest">
+                                <i class="fas fa-edit mr-1"></i>Edit
+                            </button>
+                            <button class="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                    data-event="click:handleViewComments">
+                                <i class="fas fa-comments mr-1"></i>Comments
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="border-b border-gray-200 pb-6 mb-6 last:border-b-0 last:mb-0" data-mock="true">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h4 class="text-lg font-medium text-gray-900" data-bind="request.product" data-mock="true">XUV (SN: MP48Mc2345)</h4>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    <span data-bind="request.customer" data-mock="true">Customer: Tejas (7440515452)</span><br>
+                                    <span data-bind="request.issue" data-mock="true">Issue: car</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm text-gray-500" data-bind="request.createdAt" data-mock="true">Created: 8/27/2025, 4:11:48 PM</div>
+                                <div class="mt-2">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Status: Completed
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-4">
+                            <button class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                    data-event="click:handleEditRequest">
+                                <i class="fas fa-edit mr-1"></i>Edit
+                            </button>
+                            <button class="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" 
+                                    data-event="click:handleViewComments">
+                                <i class="fas fa-comments mr-1"></i>Comments
+                            </button>
+                        </div>
+                    </div>
+                    <!-- @END_MAP )) -->
+                </div>
+            </div>
+            <!-- @END_COMPONENT: CompletedTab -->
+        </main>
+        <!-- @END_COMPONENT: MainContent -->
+    </div>
+    <!-- @END_COMPONENT: AppLayout -->
+
+    <!-- Loading Overlay -->
+    <!-- @STATE: isLoading:boolean = false -->
+    <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden" id="loadingOverlay" data-bind="isLoading">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <h3 class="text-lg font-medium text-gray-900 mt-4">Processing...</h3>
+                <p class="text-sm text-gray-600 mt-2">Please wait while we process your request.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // TODO: Implement business logic, API calls, and state management
+        (function() {
+            // Tab switching functionality
+            function initTabSwitching() {
+                const tabButtons = document.querySelectorAll('[data-tab]');
+                const tabContents = document.querySelectorAll('[data-tab-content]');
+
+                tabButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        const targetTab = this.getAttribute('data-tab');
+                        
+                        // Update button styles
+                        tabButtons.forEach(btn => {
+                            btn.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm';
+                        });
+                        this.className = 'border-blue-500 text-blue-600 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm';
+
+                        // Show/hide content
+                        tabContents.forEach(content => {
+                            if (content.getAttribute('data-tab-content') === targetTab) {
+                                content.classList.remove('hidden');
+                            } else {
+                                content.classList.add('hidden');
+                            }
+                        });
+                    });
+                });
+            }
+
+            // Form submission handling
+            function initFormHandling() {
+                const createForm = document.querySelector('form[data-event*="handleCreateRequest"]');
+                if (createForm) {
+                    createForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        // TODO: Implement form validation and submission
+                        console.log('Form submitted');
+                    });
+                }
+            }
+
+            // Status update handling
+            function initStatusUpdates() {
+                const updateButtons = document.querySelectorAll('[data-event*="handleUpdateStatus"]');
+                updateButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        // TODO: Implement status update logic
+                        console.log('Status updated');
+                    });
+                });
+            }
+
+            // Comment system
+            function initCommentSystem() {
+                const commentButtons = document.querySelectorAll('[data-event*="handleAddComment"]');
+                commentButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        // TODO: Implement comment addition
+                        console.log('Comment added');
+                    });
+                });
+            }
+
+            // Search functionality
+            function initSearch() {
+                const searchInput = document.querySelector('[data-bind="searchQuery"]');
+                const clearButton = document.querySelector('[data-event*="handleClearSearch"]');
+                
+                if (searchInput) {
+                    searchInput.addEventListener('input', function() {
+                        // TODO: Implement search filtering
+                        console.log('Search query:', this.value);
+                    });
+                }
+
+                if (clearButton) {
+                    clearButton.addEventListener('click', function() {
+                        if (searchInput) {
+                            searchInput.value = '';
+                            // TODO: Clear search results
+                            console.log('Search cleared');
+                        }
+                    });
+                }
+            }
+
+            // Initialize all functionality
+            initTabSwitching();
+            initFormHandling();
+            initStatusUpdates();
+            initCommentSystem();
+            initSearch();
+        })();
+    </script>
+</body>
+</html>
